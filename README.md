@@ -51,6 +51,17 @@ brew install --cask visual-studio-code
 brew install --cask google-chrome
 ```
 
+## Docker
+- https://docs.docker.com/desktop/install/mac-install/
+- https://docs.docker.com/desktop/install/windows-install/
+
+## Portainer
+- Community Edition: https://docs.portainer.io/v/2.20/start/install-ce/server/docker/wsl
+
+## Visual Studio Code Extensions
+- [vscode.cpptools-extension-pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools-extension-pack)
+- [ms-azuretools.vscode-docker](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-docker)
+
 # :speech_balloon: Autor <a name = "author"></a>
 
 - [@andresbiso](https://github.com/andresbiso)
