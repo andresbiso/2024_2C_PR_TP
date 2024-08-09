@@ -8,7 +8,6 @@
 # :pencil: Table of Contents
 
 - [Acerca De](#about)
-- [Levantar Proyecto](#run_project)
 - [Herramientas Utilizadas](#built_using)
 - [Autor](#author)
 - [Reconocimientos](#acknowledgement)
