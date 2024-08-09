@@ -52,7 +52,17 @@ brew install --cask google-chrome
 ```
 
 ## Docker
+
+### macOS
+
 - https://docs.docker.com/desktop/install/mac-install/
+- [docker](https://formulae.brew.sh/cask/docker#default)
+
+```
+brew install --cask docker
+```
+
+### Windows
 - https://docs.docker.com/desktop/install/windows-install/
 
 ## Portainer
