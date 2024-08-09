@@ -1,7 +1,7 @@
 # server
 SERVER(1) server 1.0.0  
 **Autor:** Andrés Isaac Biso  
-**Fecha:** 2024/.... 
+**Fecha:** 2024/...
 
 ## NAME
 server
@@ -21,7 +21,7 @@ server
 # client
 CLIENT(1) client 1.0.0  
 **Autor:** Andrés Isaac Biso  
-**Fecha:** 2024/.... 
+**Fecha:** 2024/...
 
 ## NAME
 client
