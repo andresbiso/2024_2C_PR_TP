@@ -51,21 +51,6 @@ brew install --cask visual-studio-code
 brew install --cask google-chrome
 ```
 
-### Windows
-
-- https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-windows/
-- [mongodb](https://community.chocolatey.org/packages/mongodb) -> v7.0.1
-
-```
-choco install mongodb --version 7.0.1
-```
-
-- [mongodb-compass](https://community.chocolatey.org/packages/mongodb-compass) -> v1.40.2
-
-```
-choco install mongodb-compass --version 1.40.2
-```
-
 # :speech_balloon: Autor <a name = "author"></a>
 
 - [@andresbiso](https://github.com/andresbiso)
