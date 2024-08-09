@@ -1,16 +1,16 @@
-# server
-SERVER(1) server 1.0.0  
+# servidor
+SERVIDOR(1) servidor 1.0.0  
 **Autor:** Andrés Isaac Biso  
 **Fecha:** 2024/...
 
 ## NAME
-server
+servidor
 
 ## OPTIONS
-**server**
+**servidor**
 
 ## EXAMPLES
-**./server**
+**./servidor**
 
 ## OUTPUT VALUES
 **0**
@@ -18,19 +18,19 @@ server
 
 ---
 
-# client
-CLIENT(1) client 1.0.0  
+# cliente
+CLIENTE(1) cliente 1.0.0  
 **Autor:** Andrés Isaac Biso  
 **Fecha:** 2024/...
 
 ## NAME
-client
+cliente
 
 ## OPTIONS
-**client**
+**cliente**
 
 ## EXAMPLES
-**./client**
+**./cliente**
 
 ## OUTPUT VALUES
 **0**
