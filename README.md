@@ -29,6 +29,7 @@ Recomiendo utilizar [chocolatey](https://chocolatey.org/install) para instalar e
 ```
 choco install vscode
 ```
+
 - [googlechrome](https://community.chocolatey.org/packages/googlechrome)
 
 ```
@@ -63,12 +64,66 @@ brew install --cask docker
 ```
 
 ### Windows
+
 - https://docs.docker.com/desktop/install/windows-install/
 
+## ¿Cómo usar dockerfile?
+
+- https://stackoverflow.com/questions/34782678/difference-between-running-and-starting-a-docker-container
+
+### Build Docker Image
+
+```
+cd ./dockerbuild
+docker build -t "ubuntu-redes:v1" .
+docker images
+```
+
+### Remove Docker Image
+
+```
+docker image rm ubuntu-redes:v1
+```
+
+### Run Docker Image
+
+- Hacemos también un binding de carpeta del host al container.
+- El commando exit nos permite salir de un container.
+
+```
+docker run --name ubuntu-redes -v /Users/andres/Documents/repos/2024_2C_PR_TP/:/home/repo -i -t ubuntu-redes:v1 /bin/bash
+docker ps -a
+```
+
+### Start/Stop Docker Container
+
+```
+docker stop ubunt-redes
+docker start -i ubunt-redes
+```
+
+### Remove Docker Containers
+
+- https://linuxhandbook.com/remove-docker-containers/
+
+```
+docker ps -a
+docker stop ubuntu-redes
+docker rm ubuntu-redes
+docker ps -a
+```
+
 ## Portainer
+
 - Community Edition: https://docs.portainer.io/v/2.20/start/install-ce/server/docker/wsl
 
+```
+username: admin
+password: Password1234
+```
+
 ## Visual Studio Code Extensions
+
 - [vscode.cpptools-extension-pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools-extension-pack)
 - [ms-azuretools.vscode-docker](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-docker)
 
