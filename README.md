@@ -98,8 +98,8 @@ docker ps -a
 ### Start/Stop Docker Container
 
 ```
-docker stop ubunt-redes
-docker start -i ubunt-redes
+docker stop ubuntu-redes
+docker start -i ubuntu-redes
 ```
 
 ### Remove Docker Containers
