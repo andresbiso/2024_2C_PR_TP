@@ -91,7 +91,7 @@ docker image rm ubuntu-redes:v1
 - El commando exit nos permite salir de un container.
 
 ```
-docker run --name ubuntu-redes -v /Users/andres/Documents/repos/2024_2C_PR_TP/:/home/repo -i -t ubuntu-redes:v1 /bin/bash
+docker run --name ubuntu-redes -v /Users/andres/Documents/repos/2024_2C_PR_TP/:/home/workspace -i -t ubuntu-redes:v1 /bin/bash
 docker ps -a
 ```
 
@@ -126,6 +126,12 @@ password: Password1234
 
 - [vscode.cpptools-extension-pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools-extension-pack)
 - [ms-azuretools.vscode-docker](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-docker)
+
+### Utilizar Visual Studio Code para C/C++
+
+- https://code.visualstudio.com/docs/languages/cpp
+- https://code.visualstudio.com/docs/cpp/launch-json-reference
+- https://code.visualstudio.com/docs/editor/debugging
 
 # :speech_balloon: Autor <a name = "author"></a>
 

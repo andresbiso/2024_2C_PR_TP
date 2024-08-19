@@ -53,5 +53,4 @@ dkms.conf
 
 # Custom
 .swp
-.vscode
 .DS_Store
