@@ -1,16 +1,25 @@
-/*https://stackoverflow.com/questions/51433937/how-to-compile-debug-a-c-application-in-docker-with-visual-studio-code-on-wind*/
 {
     "version": "0.2.0",
     "configurations": [
+        
         {
-            "name": "C++ Launch",
+            "name": "C Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/main",
+            "preLaunchTask": "gcc build file",
+            "program": "${workspaceFolder}/practica/fork/main",
             "args": ["arg1", "arg2"],
             "environment": [{"name": "config", "value": "Debug"}],
             "cwd": "${workspaceFolder}"
-        },
+        }
+    ]
+}
+
+/*
+A different way: https://stackoverflow.com/questions/51433937/how-to-compile-debug-a-c-application-in-docker-with-visual-studio-code-on-wind
+{
+    "version": "0.2.0",
+    "configurations": [
         {
             "name": "(gdb) Docker",
             "type": "cppdbg",
@@ -53,3 +62,4 @@
         }
     ]
 }
+*/

@@ -126,8 +126,18 @@ password: Password1234
 
 - [vscode.cpptools-extension-pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools-extension-pack)
 - [ms-azuretools.vscode-docker](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-docker)
+- [s-vscode-remote.remote-containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
-### Utilizar Visual Studio Code para C/C++
+### Utilizar Visual Studio Code para C con Docker
+
+1. Levantar el container que vamos a utilizar haciendo el mapeo de carpeta local a carpeta dentro de la /home del container.
+2. En Visual Studio abrir Remote Window y seleccionar "Attach to Running Container". Indicar el que levantamos en el paso anterior.
+   2.1. Ir en esta ventana a la parte de extensiones del Visual Studio y asegurarse de que estén todas habilitadas.
+3. Configurar la configuration de debugging del launch.json para que en el program vaya a la ruta del archivo.
+   3.1. Asegurarse de configurar el "preLaunchTask" para que levante la task de build primero.
+4. Ir al archivo que queremos hacer debug, ir a la sección run and debug del vscode y seleccionar la configuration.
+
+#### Recursos
 
 - https://code.visualstudio.com/docs/languages/cpp
 - https://code.visualstudio.com/docs/cpp/launch-json-reference
