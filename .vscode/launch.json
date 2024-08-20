@@ -1,3 +1,4 @@
+/*https://stackoverflow.com/questions/51433937/how-to-compile-debug-a-c-application-in-docker-with-visual-studio-code-on-wind*/
 {
     "version": "0.2.0",
     "configurations": [
@@ -9,6 +10,46 @@
             "args": ["arg1", "arg2"],
             "environment": [{"name": "config", "value": "Debug"}],
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "(gdb) Docker",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "build/apps/program",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "/home/workspace/",
+            "environment": [],
+            "externalConsole": true,
+            "preLaunchTask": "make debug",
+            "targetArchitecture": "x64",
+            "sourceFileMap": { "${workspaceFolder}/practica/fork": "/home/workspace/practica/fork" },
+            "pipeTransport": {
+                "debuggerPath": "/usr/bin/gdb",
+                "pipeProgram": "docker",
+                "pipeArgs": [
+                    "run",
+                    "--rm",
+                    "--interactive",
+                    "--volume",
+                    "${workspaceFolder}:/home/workspace",
+                    "--workdir",
+                    "/home/workspace",
+                    "--privileged",
+                    "ubuntu-redes:v1",
+                    "sh",
+                    "-c"
+                ],
+                 "pipeCwd": ""
+            },
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
         }
     ]
 }

@@ -54,3 +54,4 @@ dkms.conf
 # Custom
 .swp
 .DS_Store
+/build
