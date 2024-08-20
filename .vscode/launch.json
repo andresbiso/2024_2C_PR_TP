@@ -23,7 +23,7 @@
             "externalConsole": true,
             "preLaunchTask": "make debug",
             "targetArchitecture": "x64",
-            "sourceFileMap": { "${workspaceFolder}/practica/fork": "/home/workspace/practica/fork" },
+            "sourceFileMap": { "/home/workspace": "${workspaceFolder}" },
             "pipeTransport": {
                 "debuggerPath": "/usr/bin/gdb",
                 "pipeProgram": "docker",
