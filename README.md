@@ -155,7 +155,7 @@ password: Password1234
 Recomiendo:
 
 - Cargar los ejemplos o proyectos de código de a uno dentro del container.
-- Que cada carpeta con un proyecto tenga su proprio .vscode con su launch.json y su tasks.json.
+- Que cada carpeta con un proyecto tenga su propio .vscode con su launch.json y su tasks.json.
 - Que cada proyecto tenga su propio Makefile.
 
 #### Recursos
