@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "threadpool.h": "c",
+        "fcntl.h": "c",
+        "time.h": "c",
+        "stdlib.h": "c"
+    }
+}

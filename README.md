@@ -69,6 +69,20 @@ brew install --cask docker
 
 ## ¿Cómo usar dockerfile?
 
+Se provee un docker container con todas las tools necesarias para compilación y debugging de aplicaciónes. Para instalar el entorno ejecutar el docker compose detached en el root del proyecto.
+
+```bash
+ docker compose up --build -d
+```
+
+Una vez finalizado se puede conectarse por TTY al container con el siguiente comando:
+
+```bash
+ docker exec -it ubuntu-redes bash
+```
+
+## (Legacy) ¿Cómo usar dockerfile?
+
 - https://stackoverflow.com/questions/34782678/difference-between-running-and-starting-a-docker-container
 
 ### Build Docker Image
@@ -127,6 +141,7 @@ password: Password1234
 - [vscode.cpptools-extension-pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools-extension-pack)
 - [ms-azuretools.vscode-docker](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-docker)
 - [s-vscode-remote.remote-containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+- [ms-vscode.makefile-tools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.makefile-tools)
 
 ### Utilizar Visual Studio Code para C con Docker
 
@@ -136,6 +151,12 @@ password: Password1234
 3. Configurar la configuration de debugging del launch.json para que en el program vaya a la ruta del archivo.
    3.1. Asegurarse de configurar el "preLaunchTask" para que levante la task de build primero.
 4. Ir al archivo que queremos hacer debug, ir a la sección run and debug del vscode y seleccionar la configuration.
+
+Recomiendo:
+
+- Cargar los ejemplos o proyectos de código de a uno dentro del container.
+- Que cada carpeta con un proyecto tenga su proprio .vscode con su launch.json y su tasks.json.
+- Que cada proyecto tenga su propio Makefile.
 
 #### Recursos
 
@@ -149,5 +170,6 @@ password: Password1234
 
 # :tada: Reconocimientos <a name = "acknowledgement"></a>
 
+- https://github.com/dmarafetti/up-redes
 - https://github.com/github/gitignore
 - https://gist.github.com/rxaviers/7360908 -> github emojis

@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+
+  ubuntu:
+    container_name: ubuntu-redes-new
+    image: ubuntu-redes-img
+    build:
+      context: .
+      dockerfile: Dockerfile
+    stdin_open: true
+    tty: true
+    cap_add:
+      - SYS_PTRACE
+    ports:
+      - 3030:3030
+    volumes:
+      - .:/home/workspace
