@@ -30,8 +30,7 @@ int get_keypress()
 // Función que se ejecutará en el hilo
 void *print_keycode(void *arg)
 {
-    printf("Press any key: ");
-    int keycode = get_keypress();
+    int keycode = *(int *)arg;
     printf("Key code: %d\n", keycode);
     return NULL;
 }
@@ -40,9 +39,14 @@ int main()
 {
     pthread_t thread;
     PCALLBACK callback = print_keycode;
-    pthread_create(&thread, NULL, callback, NULL);
-    // wait for thread
-    pthread_join(thread, NULL);
+    while (1)
+    {
+        printf("Press any key: ");
+        int keycode = get_keypress();
+        pthread_create(&thread, NULL, callback, &keycode);
+        // wait for thread
+        pthread_join(thread, NULL);
+    }
     printf("main thread finished... \n");
     return 0;
 }
