@@ -1,50 +1,56 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include <termios.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
-// Función para leer un keypress
-int get_keypress()
+int main(int argc, const char **argv)
 {
-    struct termios oldt, newt;
-    int ch;
-    // Save the current terminal settings
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    // Modify the terminal settings to disable canonical mode and echo
-    newt.c_lflag &= ~(ICANON | ECHO);
-    // Apply the new terminal settings
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-    // Read a character from STDIN
-    ch = getchar();
-    // Restore the original terminal settings
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    // Return the key code
-    return ch;
-}
-
-int main()
-{
-    pid_t pid = fork();
-
-    if (pid == 0)
+    while (1)
     {
-        // Proceso hijo
-        int keycode = get_keypress();
-        printf("Key code: %d\n", keycode);
-    }
-    else if (pid > 0)
-    {
-        // Proceso padre
-        wait(NULL); // Espera a que el proceso hijo termine
-    }
-    else
-    {
-        // Error al crear el proceso
-        perror("fork");
-        return 1;
-    }
+        puts("Press any key:");
+        int keycode = getchar();
 
-    return 0;
+        if (keycode == '\n' || keycode == EOF)
+        {
+            continue; // Ignore Enter or EOF and continue the loop
+        }
+
+        pid_t pid = fork();
+
+        if (pid == 0)
+        {
+            // Child process
+            printf("I am the child with pid %d from parent %d - fork pid %d\n", getpid(), getppid(), pid);
+            printf("Key code: %d\n", keycode);
+            printf("Key: %c\n", keycode);
+            put("child end");
+        }
+        else if (pid > 0)
+        {
+            // Parent process
+            printf("I am the parent with pid %d - child pid %d\n", getpid(), pid);
+
+            // The waitpid() system call suspends execution of the calling process
+            // until a child specified by pid argument has changed state.
+            // By default, waitpid() waits only for terminated children,
+            // but this behavior is modifiable via the options argument, as described below.
+            int exitStatus;
+
+            printf("waiting for child to finish...\n");
+            // Wait for the child process to finish
+            waitpid(pid, &exitStatus, 0);
+            printf("Retrieved pid: %d, parent end.\n", pid);
+        }
+        else
+        {
+            // Error creating the process
+            perror("Error calling fork()");
+            exit(EXIT_FAILURE);
+        }
+
+        // Clear the input buffer
+        while (getchar() != '\n')
+            ;
+    }
 }
