@@ -9,7 +9,7 @@
                 "-g",
                 "${workspaceFolder}/*.c",
                 "-o",
-                "${fileDirname}/${fileBasenameNoExtension}",
+                "${fileDirname}/dist/${fileBasenameNoExtension}",
                 "-lpthread"
             ],
             "options": {

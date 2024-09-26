@@ -75,6 +75,7 @@ INT main(INT argc, const PCHAR *argv) {
     if(argc < 1) {
     
         displayUsage();
+        
         return 1;
     }
     

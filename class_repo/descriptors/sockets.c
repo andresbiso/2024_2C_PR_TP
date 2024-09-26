@@ -25,7 +25,6 @@ int main(int argc, char **argv) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
 
 
-
     // io nonblocking
     
     // fcntl(fd, F_SETFL, O_NONBLOCK);
@@ -34,10 +33,9 @@ int main(int argc, char **argv) {
     // socket opts
     int yes=1;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
-
+      
 
     // bind socket sockadd_in
-    
     PADDR serverAddr = (PADDR) malloc(sizeof(ADDR));
    
     serverAddr->sin_family = AF_INET;
@@ -67,6 +65,11 @@ int main(int argc, char **argv) {
         
     unsigned short usport = ntohs(clientAddr->sin_port);
     unsigned short port = clientAddr->sin_port;
+    
+    // ejemplo:
+    // usport == 33982 to hex (84BE)
+    // port == 48772 to hex (BE84)
+
 
 
     printf("accepted connection - socket: %d - ip: %s - port ho: %d - port no: %d\n", 
@@ -79,13 +82,13 @@ int main(int argc, char **argv) {
     char *clientBuffer = (char *) malloc(1024);
     memset(clientBuffer, 0, 1024);
     
-    int received = recv(clientSocket, clientBuffer, 1024, 0);
+    int received = recv(clientSocket, clientBuffer, 10, 0);
 
     if(received > 0) {
 
-        unsigned short p = 0;
+        //unsigned short p = 0;
 
-        memcpy(&p, clientBuffer, 2);
+        //memcpy(&p, clientBuffer, 2);
 
         printf("data received: %s\n", clientBuffer);
 

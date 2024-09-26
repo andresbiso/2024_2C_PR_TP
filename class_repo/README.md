@@ -6,7 +6,7 @@
 </h1>
 <br>
 
----
+***
 
 [![forthebadge](https://forthebadge.com/images/badges/docker-container.svg)](https://forthebadge.com)
 [![forthebadge](https://forthebadge.com/images/badges/made-with-c.svg)](https://forthebadge.com)
@@ -25,6 +25,7 @@ Repositorio oficial de la materia Programación en Redes. Departamento de Ingeni
 - [Configuracion recomendada](#recommended-configurations)
 - [Contributing](#contributing)
 - [Contacto](#contacto)
+
 
 ## Requerimientos 🚀
 
@@ -45,7 +46,7 @@ Repositorio oficial de la materia Programación en Redes. Departamento de Ingeni
 
 ### Docker
 
-Se provee un docker container con todas las tools necesarias para compilación y debugging de aplicaciónes. Para instalar el entorno ejecutar el docker compose detached en el root del proyecto.
+Se provee un docker container con todas las tools necesarias para compilación y debugging de aplicaciónes. Para instalar el entorno ejecutar el docker compose detached en el root del proyecto. 
 
 ```bash
  docker compose up --build -d
@@ -57,6 +58,8 @@ Una vez finalizado se puede conectarse por TTY al container con el siguiente com
  docker exec -it ubuntu-redes bash
 ```
 
+
+
 ## Contributing
 
 [(Back to top)](#contenidos)
@@ -66,6 +69,9 @@ Contributions are always welcome!
 See `contributing.md` for ways to get started.
 
 Please adhere to this project's `code of conduct`.
+
+
+
 
 ## Contacto
 

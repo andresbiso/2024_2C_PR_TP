@@ -62,11 +62,11 @@ int main(int argc, char **argv) {
 
     // send data
 
-    char *buffer = "1234";
-    unsigned short number = 1000;
+    char *buffer = "123456789";
+    //unsigned short number = 1000;
 
-    //int sent = send(fd, buffer, strlen(buffer), 0);
-    int sent = send(fd, &number, sizeof(unsigned short), 0);
+    int sent = send(fd, buffer, strlen(buffer), 0);
+    //int sent = send(fd, &number, sizeof(unsigned short), 0);
 
     printf("bytes sent: %d\n", sent);
 

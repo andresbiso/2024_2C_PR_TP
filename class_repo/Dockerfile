@@ -16,8 +16,7 @@ RUN apt-get update \
     gdb \
     net-tools \
     vim \
-    htop \
-    lsof
+    htop
 
 WORKDIR /home
 

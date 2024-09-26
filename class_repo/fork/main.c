@@ -19,7 +19,7 @@ int main(int argc, const char **argv) {
     
 
     int fd = open("./test.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
-        
+    // fd == 3    
 
     //
     // fork process 
