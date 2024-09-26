@@ -16,7 +16,8 @@ RUN apt-get update \
     gdb \
     net-tools \
     vim \
-    htop
+    htop \
+    dnsutils
 
 WORKDIR /home
 

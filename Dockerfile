@@ -17,6 +17,7 @@ RUN apt-get update \
     net-tools \
     vim \
     htop \
+    dnsutils \
     lsof
 
 WORKDIR /home
