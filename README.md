@@ -8,7 +8,10 @@
 # :pencil: Table of Contents
 
 - [Acerca De](#about)
-- [Herramientas Utilizadas](#built_using)
+- [Aplicaciones Utilizadas](#applications)
+- [Docker](#docker)
+- [Visual Studio Code](#vscode)
+- [Levantar el proyecto ](#run_project)
 - [Autor](#author)
 - [Reconocimientos](#acknowledgement)
 
@@ -16,11 +19,9 @@
 
 - Repositorio que contiene el trabajo práctico de la materia Programación en Redes de la Universidad de Palermo.
 
-# :hammer: Herramientas Utilizadas <a name = "built_using"></a>
+# :hammer: Aplicaciones Utilizadas <a name = "applications"></a>
 
-## Herramientas
-
-### Windows
+## Windows
 
 Recomiendo utilizar [chocolatey](https://chocolatey.org/install) para instalar estos paquetes:
 
@@ -36,7 +37,7 @@ choco install vscode
 choco install googlechrome
 ```
 
-### macOS
+## macOS
 
 Recomiendo utilizar [homebrew](https://brew.sh/) para instalar estos paquetes:
 
@@ -52,9 +53,9 @@ brew install --cask visual-studio-code
 brew install --cask google-chrome
 ```
 
-## Docker
+# :hammer: Docker <a name = "docker"></a>
 
-### macOS
+## macOS
 
 - https://docs.docker.com/desktop/install/mac-install/
 - [docker](https://formulae.brew.sh/cask/docker#default)
@@ -63,7 +64,7 @@ brew install --cask google-chrome
 brew install --cask docker
 ```
 
-### Windows
+## Windows
 
 - https://docs.docker.com/desktop/install/windows-install/
 
@@ -81,50 +82,11 @@ Una vez finalizado se puede conectarse por TTY al container con el siguiente com
  docker exec -it ubuntu-redes bash
 ```
 
-## (Legacy) ¿Cómo usar dockerfile?
-
-- https://stackoverflow.com/questions/34782678/difference-between-running-and-starting-a-docker-container
-
-### Build Docker Image
-
-```
-cd ./dockerbuild
-docker build -t "ubuntu-redes:v1" .
-docker images
-```
-
-### Remove Docker Image
-
-```
-docker image rm ubuntu-redes:v1
-```
-
-### Run Docker Image
-
-- Hacemos también un binding de carpeta del host al container.
-- El commando exit nos permite salir de un container.
-
-```
-docker run --name ubuntu-redes -v /Users/andres/Documents/repos/2024_2C_PR_TP/:/home/workspace -i -t ubuntu-redes:v1 /bin/bash
-docker ps -a
-```
-
 ### Start/Stop Docker Container
 
 ```
 docker stop ubuntu-redes
 docker start -i ubuntu-redes
-```
-
-### Remove Docker Containers
-
-- https://linuxhandbook.com/remove-docker-containers/
-
-```
-docker ps -a
-docker stop ubuntu-redes
-docker rm ubuntu-redes
-docker ps -a
 ```
 
 ## Portainer
@@ -136,6 +98,8 @@ username: admin
 password: Password1234
 ```
 
+# :hammer: Visual Studio Code <a name = "vscode"></a>
+
 ## Visual Studio Code Extensions
 
 - [vscode.cpptools-extension-pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools-extension-pack)
@@ -143,7 +107,7 @@ password: Password1234
 - [s-vscode-remote.remote-containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 - [ms-vscode.makefile-tools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.makefile-tools)
 
-### Utilizar Visual Studio Code para C con Docker
+## Utilizar Visual Studio Code para C con Docker
 
 1. Levantar el container que vamos a utilizar haciendo el mapeo de carpeta local a carpeta dentro de la /home del container.
 2. En Visual Studio abrir Remote Window y seleccionar "Attach to Running Container". Indicar el que levantamos en el paso anterior.
@@ -158,11 +122,13 @@ Recomiendo:
 - Que cada carpeta con un proyecto tenga su propio .vscode con su launch.json y su tasks.json.
 - Que cada proyecto tenga su propio Makefile.
 
-#### Recursos
+### Recursos
 
 - https://code.visualstudio.com/docs/languages/cpp
 - https://code.visualstudio.com/docs/cpp/launch-json-reference
 - https://code.visualstudio.com/docs/editor/debugging
+
+# :hammer: Levantar el proyecto <a name = "run_project"></a>
 
 ## ¿Como solemos levantar el proyecto?
 
