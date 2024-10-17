@@ -82,6 +82,12 @@ Una vez finalizado se puede conectarse por TTY al container con el siguiente com
  docker exec -it ubuntu-redes bash
 ```
 
+Salir de docker container:
+
+```bash
+ exit
+```
+
 ### Start/Stop Docker Container
 
 ```
