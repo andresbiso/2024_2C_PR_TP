@@ -191,6 +191,11 @@ Recomiendo:
   gcc sockets.c -o socket
   ./socket
   ```
+- [make](https://linux.die.net/man/1/make)
+  - Si el directorio contiene un Makefile
+  ```
+  make
+  ```
 - [nslookup](https://linux.die.net/man/1/nslookup)
   ```
   nslookup yahoo.com
