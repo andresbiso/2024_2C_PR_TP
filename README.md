@@ -172,59 +172,59 @@ Recomiendo:
 
 ## Comandos útiles
 
-[netstat](https://linux.die.net/man/8/netstat)
-´´´
-netstat -n --inet
-netstat -l -n --inet
-netstat -l -n --inet -p
-netstat -tcp
-´´´
-[ps](https://linux.die.net/man/1/ps)
-´´´
-ps -fea
-ps -fea | grep netcat
-´´´
-[nc/netcat](https://linux.die.net/man/1/nc)
-Server (listen)
-´´´
-netcat -l localhost 8001 [port]
-nc -l localhost 80
-´´´
-Client (Connect)
-´´´
-netcat localhost 8001 [port]
-nc localhost 80
-´´´
-[strace](https://linux.die.net/man/1/nc)
-´´´
-strace -p 14442 [process_id obtenido con ps -fea]
-´´´
-[ifconfig](https://linux.die.net/man/8/ifconfig)
-´´´
-ifconfig
-´´´
-[ss](https://linux.die.net/man/8/ss)
-[watch](https://linux.die.net/man/1/watch)
-´´´
-watch -n0 ss -t4ane
-´´´
-[ls/ll](https://linux.die.net/man/1/ls)
-´´´
-ll is an alias of ls -l
-More info:
-https://unix.stackexchange.com/questions/137703/difference-between-ls-l-and-ll
-´´´
-[gcc](https://linux.die.net/man/1/gcc)
-´´´
-gcc sockets.c -o socket
-./socket
-´´´
-[nslookup](https://linux.die.net/man/1/nslookup)
-´´´
-nslookup yahoo.com
-´´´
-[dig](https://linux.die.net/man/1/dig)
-[lsof](https://linux.die.net/man/8/lsof)
+- [netstat](https://linux.die.net/man/8/netstat)
+  ```
+  netstat -n --inet
+  netstat -l -n --inet
+  netstat -l -n --inet -p
+  netstat -tcp
+  ```
+- [ps](https://linux.die.net/man/1/ps)
+  ```
+  ps -fea
+  ps -fea | grep netcat
+  ```
+- [nc/netcat](https://linux.die.net/man/1/nc)
+  Server (listen)
+  ```
+  netcat -l localhost 8001 [port]
+  nc -l localhost 80
+  ```
+  Client (Connect)
+  ```
+  netcat localhost 8001 [port]
+  nc localhost 80
+  ```
+- [strace](https://linux.die.net/man/1/nc)
+  ```
+  strace -p 14442 [process_id obtenido con ps -fea]
+  ```
+- [ifconfig](https://linux.die.net/man/8/ifconfig)
+  ```
+  ifconfig
+  ```
+- [ss](https://linux.die.net/man/8/ss)
+- [watch](https://linux.die.net/man/1/watch)
+  ```
+  watch -n0 ss -t4ane
+  ```
+- [ls/ll](https://linux.die.net/man/1/ls)
+  ```
+  ll is an alias of ls -l
+  More info:
+  https://unix.stackexchange.com/questions/137703/difference-between-ls-l-and-ll
+  ```
+- [gcc](https://linux.die.net/man/1/gcc)
+  ```
+  gcc sockets.c -o socket
+  ./socket
+  ```
+- [nslookup](https://linux.die.net/man/1/nslookup)
+  ```
+  nslookup yahoo.com
+  ```
+- [dig](https://linux.die.net/man/1/dig)
+- [lsof](https://linux.die.net/man/8/lsof)
 
 # :speech_balloon: Autor <a name = "author"></a>
 
