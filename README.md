@@ -185,12 +185,12 @@ Recomiendo:
   ps -fea | grep netcat
   ```
 - [nc/netcat](https://linux.die.net/man/1/nc)
-  Server (listen)
+  - Server (listen)
   ```
   netcat -l localhost 8001 [port]
   nc -l localhost 80
   ```
-  Client (Connect)
+  - Client (Connect)
   ```
   netcat localhost 8001 [port]
   nc localhost 80
