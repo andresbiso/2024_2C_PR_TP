@@ -27,16 +27,8 @@ int main(int argc, char *argv[])
     char *ip_number, *port_number;
     int sockfd; // listen on sock_fd
 
-    if ((ip_number = initialize_string(INET_ADDRSTRLEN)) == NULL)
-    {
-        perror("server: failed to allocate memory");
-        return EXIT_FAILURE;
-    }
-    if ((port_number = initialize_string(PORTSTRLEN)) == NULL)
-    {
-        perror("server: failed to allocate memory");
-        return EXIT_FAILURE;
-    }
+    ip_number = initialize_string(INET_ADDRSTRLEN);
+    port_number = initialize_string(PORTSTRLEN);
     strcpy(ip_number, DEFAULT_IP);
     strcpy(port_number, DEFAULT_PORT);
 
@@ -58,17 +50,14 @@ void handle_connections(int sockfd)
     socklen_t sin_size;
     char their_ipstr[INET_ADDRSTRLEN];
     char *msg;
-    int msglen, new_fd; // new connection on new_fd
+    int msglen, their_port;
+    int new_fd; // new connection on new_fd
 
-    if ((msg = initialize_string(INET_ADDRSTRLEN)) == NULL)
-    {
-        perror("server: failed to allocate memory");
-        exit(EXIT_FAILURE);
-    }
+    msg = initialize_string(INET_ADDRSTRLEN);
     strcpy(msg, "Hola, soy el server");
     msglen = strlen(msg);
 
-    // main accept() loop
+    // Main accept() loop
     while (1)
     {
         sin_size = sizeof their_addr;
@@ -83,19 +72,19 @@ void handle_connections(int sockfd)
                   &(((struct sockaddr_in *)&their_addr)->sin_addr),
                   their_ipstr,
                   sizeof their_ipstr);
-        printf("server: obtuvo conexión de %s\n", their_ipstr);
+        their_port = ((struct sockaddr_in *)&their_addr)->sin_port;
+        printf("server: obtuvo conexión de %s:%d\n", their_ipstr, their_port);
 
         if (fork() == 0)
         {
-            // this is the child process
-            // child doesn't need the listener
+            // This is the child process
+            // Child doesn't need the listener (sockfd)
             close(sockfd);
-            if (send(new_fd, msg, msglen, 0) == -1)
-                perror("server: send");
+            sendall(new_fd, msg, msglen);
             close(new_fd);
             exit(EXIT_SUCCESS);
         }
-        // parent doesn't need this
+        // Parent doesn't need new_fd
         close(new_fd);
     }
 
@@ -163,12 +152,12 @@ int setup_server(char *port_number, char *ip_number)
         ipv4 = (struct sockaddr_in *)p->ai_addr;
         my_addr = &(ipv4->sin_addr);
 
-        // convert the IP to a string and print it
+        // Convert the IP to a string and print it
         inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof my_ipstr);
         printf("->  IPv4: %s\n", my_ipstr);
     }
 
-    // loop through all the results and bind to the first we can
+    // Loop through all the results and bind to the first we can
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
@@ -196,7 +185,7 @@ int setup_server(char *port_number, char *ip_number)
         break;
     }
 
-    // free addrinfo struct allocated memory
+    // Free addrinfo struct allocated memory
     freeaddrinfo(servinfo);
 
     if (p == NULL)

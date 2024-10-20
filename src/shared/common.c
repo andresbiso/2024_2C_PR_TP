@@ -24,33 +24,53 @@ char *initialize_string(size_t size)
     char *p = (char *)malloc(size * sizeof(char));
     if (p == NULL)
     {
-        perror("Failed to allocate memory");
-        return NULL;
+        perror("malloc: fallo al asignar memoria");
+        exit(EXIT_FAILURE);
     }
     memset(p, 0, size);
     return p;
 }
 
-void recvall(int socket, char *buffer, size_t buffer_size)
+void recvall(int socket, char **buffer, size_t *buffer_size)
 {
     size_t total_received = 0;
     ssize_t received;
+    size_t initial_size = *buffer_size;
 
-    while (total_received < buffer_size - 1)
+    *buffer = initialize_string(initial_size);
+
+    while (1)
     {
-        received = recv(socket, buffer + total_received, buffer_size - total_received - 1, 0);
+        received = recv(socket, *buffer + total_received, initial_size - total_received - 1, 0);
         if (received == -1)
         {
-            perror("recv");
+            free(*buffer);
+            perror("recv: fallo al querer recibir datos");
             exit(EXIT_FAILURE);
         }
         else if (received == 0)
         {
             break; // Connection closed by the server
         }
+
         total_received += received;
+
+        if (total_received >= initial_size - 1)
+        {
+            initial_size *= 2; // Double the buffer size
+            *buffer = (char *)realloc(*buffer, initial_size);
+            if (*buffer == NULL)
+            {
+                perror("realloc: fallo al reasignar memoria");
+                exit(EXIT_FAILURE);
+            }
+            printf("buffer incrementado de %ld bytes a %ld bytes\n", *buffer_size, initial_size);
+            *buffer_size = initial_size;
+        }
     }
-    buffer[total_received] = '\0'; // Null-terminate the string
+
+    (*buffer)[total_received] = '\0'; // Null-terminate the string
+    printf("total recibido: %ld bytes\n", total_received);
 }
 
 void sendall(int socket, const char *buffer, size_t length)
@@ -61,11 +81,12 @@ void sendall(int socket, const char *buffer, size_t length)
         ssize_t sent = send(socket, buffer + total_sent, length - total_sent, 0);
         if (sent == -1)
         {
-            perror("send");
+            perror("send: fallo al querer enviar datos");
             exit(EXIT_FAILURE);
         }
         total_sent += sent;
     }
+    printf("total enviado: %ld bytes\n", total_sent);
 }
 
 // ONLY USE IF USING FORK()
@@ -90,7 +111,7 @@ void setup_signal_handler()
 // Function to reap all dead processes
 void sigchld_handler(int s)
 {
-    (void)s; // quiet unused variable warning
+    (void)s; // Quiet unused variable warning
 
     // waitpid() might overwrite errno, so we save and restore it:
     int saved_errno = errno;

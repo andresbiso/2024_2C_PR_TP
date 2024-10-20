@@ -14,6 +14,7 @@
     "signal.h": "c",
     "netdb.h": "c",
     "inet.h": "c",
-    "thread": "c"
+    "thread": "c",
+    "common.h": "c"
   }
 }

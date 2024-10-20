@@ -25,18 +25,11 @@
 int main(int argc, char *argv[])
 {
     char *ip_number, *port_number;
-    int sockfd; // listen on sock_fd
+    int sockfd; // Listen on sock_fd
 
-    if ((ip_number = initialize_string(INET_ADDRSTRLEN)) == NULL)
-    {
-        perror("client: failed to allocate memory");
-        return EXIT_FAILURE;
-    }
-    if ((port_number = initialize_string(PORTSTRLEN)) == NULL)
-    {
-        perror("client: failed to allocate memory");
-        return EXIT_FAILURE;
-    }
+    ip_number = initialize_string(INET_ADDRSTRLEN);
+    port_number = initialize_string(PORTSTRLEN);
+
     strcpy(ip_number, DEFAULT_IP);
     strcpy(port_number, DEFAULT_PORT);
 
@@ -53,34 +46,24 @@ int main(int argc, char *argv[])
 
 void handle_connection(int sockfd)
 {
-    char *buf;
+    char *data;
+    size_t buffer_size = DEFAULT_BUFFER_SIZE; // Define the initial buffer size
     char *msg;
-    int msglen, numbytes;
 
-    if ((msg = initialize_string(INET_ADDRSTRLEN)) == NULL)
-    {
-        perror("client: failed to allocate memory");
-        exit(EXIT_FAILURE);
-    }
-    if ((buf = initialize_string(MAXDATASIZE)) == NULL)
-    {
-        perror("client: failed to allocate memory");
-        exit(EXIT_FAILURE);
-    }
+    msg = initialize_string(INET_ADDRSTRLEN);
     strcpy(msg, "PING");
-    msglen = strlen(msg);
 
-    // main loop
+    // Main loop
     while (1)
     {
-        recvall(sockfd, buf, MAXDATASIZE - 1);
-        printf("client: received \"%s\"\n", buf);
+        recvall(sockfd, &data, &buffer_size);
+        printf("client: mensaje recibido: \"%s\"\n", data);
         close(sockfd);
         break;
     }
 
     free(msg);
-    free(buf);
+    free(data);
 }
 
 void parse_arguments(int argc, char *argv[], char **port_number, char **ip_number)
@@ -121,11 +104,12 @@ void parse_arguments(int argc, char *argv[], char **port_number, char **ip_numbe
 
 int setup_client(char *port_number, char *ip_number)
 {
-    int returned_value, sockfd, yes = 1;
-    char my_ipstr[INET_ADDRSTRLEN];
+    int local_port, returned_value, sockfd;
+    char local_ip[INET_ADDRSTRLEN], their_ipstr[INET_ADDRSTRLEN];
     struct addrinfo hints, *servinfo, *p;
-    struct sockaddr_in *ipv4;
-    void *my_addr;
+    struct sockaddr_in local_addr, *ipv4;
+    void *their_addr;
+    socklen_t local_addr_len;
 
     // Setup addinfo
     memset(&hints, 0, sizeof hints);
@@ -142,14 +126,14 @@ int setup_client(char *port_number, char *ip_number)
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
         ipv4 = (struct sockaddr_in *)p->ai_addr;
-        my_addr = &(ipv4->sin_addr);
+        their_addr = &(ipv4->sin_addr);
 
-        // convert the IP to a string and print it:
-        inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof my_ipstr);
-        printf("->  IPv4: %s\n", my_ipstr);
+        // Convert the IP to a string and print it:
+        inet_ntop(p->ai_family, their_addr, their_ipstr, sizeof their_ipstr);
+        printf("->  IPv4: %s\n", their_ipstr);
     }
 
-    // loop through all the results and connect to the first we can
+    // Loop through all the results and connect to the first we can
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
@@ -169,7 +153,7 @@ int setup_client(char *port_number, char *ip_number)
         break;
     }
 
-    // free addrinfo struct allocated memory
+    // Free addrinfo struct allocated memory
     freeaddrinfo(servinfo);
 
     if (p == NULL)
@@ -178,12 +162,21 @@ int setup_client(char *port_number, char *ip_number)
         exit(EXIT_FAILURE);
     }
 
-    // Show connect ip and port
+    // Show server ip and port
     ipv4 = (struct sockaddr_in *)p->ai_addr;
-    my_addr = &(ipv4->sin_addr);
-    inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof my_ipstr);
+    their_addr = &(ipv4->sin_addr);
+    inet_ntop(p->ai_family, their_addr, their_ipstr, sizeof their_ipstr);
 
-    printf("client: conectado a %s:%s\n", my_ipstr, port_number);
+    printf("client: conectado a %s:%s\n", their_ipstr, port_number);
+
+    // Show client ip and port
+    local_addr_len = sizeof(struct sockaddr_in);
+    // Returns the current address to which the socket sockfd is bound
+    getsockname(sockfd, (struct sockaddr *)&local_addr, &local_addr_len);
+    inet_ntop(local_addr.sin_family, &local_addr.sin_addr, local_ip, sizeof(local_ip));
+    local_port = ntohs(local_addr.sin_port);
+
+    printf("client: dirección local %s:%d\n", local_ip, local_port);
 
     return sockfd;
 }
