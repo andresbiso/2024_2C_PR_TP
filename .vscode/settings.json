@@ -4,6 +4,12 @@
     "cstdlib": "c",
     "stdio.h": "c",
     "_stdio.h": "c",
-    "_null.h": "c"
+    "_null.h": "c",
+    "wait.h": "c",
+    "in.h": "c",
+    "types.h": "c",
+    "string.h": "c",
+    "_string.h": "c",
+    "sstream": "c"
   }
 }

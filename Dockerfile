@@ -18,7 +18,8 @@ RUN apt-get update \
     vim \
     htop \
     dnsutils \
-    lsof
+    lsof \
+    valgrind
 
 WORKDIR /home
 

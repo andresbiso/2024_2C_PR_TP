@@ -1,7 +1,4 @@
-version: '3.8'
-
 services:
-
   ubuntu:
     container_name: ubuntu-redes
     image: ubuntu-redes-img

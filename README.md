@@ -73,19 +73,19 @@ brew install --cask docker
 Se provee un docker container con todas las tools necesarias para compilación y debugging de aplicaciónes. Para instalar el entorno ejecutar el docker compose detached en el root del proyecto.
 
 ```bash
- docker compose up --build -d
+docker compose up --build -d
 ```
 
 Una vez finalizado se puede conectarse por TTY al container con el siguiente comando:
 
 ```bash
- docker exec -it ubuntu-redes bash
+docker exec -it ubuntu-redes bash
 ```
 
 Salir de docker container:
 
 ```bash
- exit
+exit
 ```
 
 ### Start/Stop Docker Container
@@ -202,6 +202,11 @@ Recomiendo:
   ```
 - [dig](https://linux.die.net/man/1/dig)
 - [lsof](https://linux.die.net/man/8/lsof)
+- [valgrind](https://linux.die.net/man/1/valgrind)
+  - https://valgrind.org/docs/manual/quick-start.html#quick-start.mcrun
+  ```
+  valgrind --leak-check=full --show-leak-kinds=all ./myprog
+  ```
 
 # :speech_balloon: Autor <a name = "author"></a>
 
