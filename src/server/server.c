@@ -29,12 +29,12 @@ int main(int argc, char *argv[])
 
     if ((ip_number = initialize_string(INET_ADDRSTRLEN)) == NULL)
     {
-        perror("Failed to allocate memory");
+        perror("server: failed to allocate memory");
         return EXIT_FAILURE;
     }
     if ((port_number = initialize_string(PORTSTRLEN)) == NULL)
     {
-        perror("Failed to allocate memory");
+        perror("server: failed to allocate memory");
         return EXIT_FAILURE;
     }
     strcpy(ip_number, DEFAULT_IP);
@@ -62,7 +62,7 @@ void handle_connections(int sockfd)
 
     if ((msg = initialize_string(INET_ADDRSTRLEN)) == NULL)
     {
-        perror("Failed to allocate memory");
+        perror("server: failed to allocate memory");
         exit(EXIT_FAILURE);
     }
     strcpy(msg, "Hola, soy el server");
@@ -75,7 +75,7 @@ void handle_connections(int sockfd)
         new_fd = accept(sockfd, &their_addr, &sin_size);
         if (new_fd == -1)
         {
-            perror("accept");
+            perror("server: accept");
             continue;
         }
 
@@ -91,7 +91,7 @@ void handle_connections(int sockfd)
             // child doesn't need the listener
             close(sockfd);
             if (send(new_fd, msg, msglen, 0) == -1)
-                perror("send");
+                perror("server: send");
             close(new_fd);
             exit(EXIT_SUCCESS);
         }
@@ -100,18 +100,6 @@ void handle_connections(int sockfd)
     }
 
     free(msg);
-}
-
-char *initialize_string(size_t size)
-{
-    char *p = (char *)malloc(size * sizeof(char));
-    if (p == NULL)
-    {
-        perror("Failed to allocate memory");
-        return NULL;
-    }
-    memset(p, 0, size);
-    return p;
 }
 
 void parse_arguments(int argc, char *argv[], char **port_number, char **ip_number)
@@ -142,7 +130,7 @@ void parse_arguments(int argc, char *argv[], char **port_number, char **ip_numbe
             }
             else
             {
-                printf("Error: Opción o argumento no soportado: %s\n", argv[i]);
+                printf("server: Opción o argumento no soportado: %s\n", argv[i]);
                 show_help();
                 exit(EXIT_FAILURE);
             }
@@ -162,21 +150,20 @@ int setup_server(char *port_number, char *ip_number)
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET; // AF_INET to force version IPv4
     hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE; // use my IP
 
     if ((returned_value = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
     {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(returned_value));
+        fprintf(stderr, "server: getaddrinfo: %s\n", gai_strerror(returned_value));
         return 1;
     }
 
-    puts("Direcciones IP para el \"Server\"");
+    puts("server: direcciones resueltas");
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
         ipv4 = (struct sockaddr_in *)p->ai_addr;
         my_addr = &(ipv4->sin_addr);
 
-        // convert the IP to a string and print it:
+        // convert the IP to a string and print it
         inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof my_ipstr);
         printf("->  IPv4: %s\n", my_ipstr);
     }
@@ -195,7 +182,7 @@ int setup_server(char *port_number, char *ip_number)
         if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
                        sizeof(int)) == -1)
         {
-            perror("setsockopt");
+            perror("server: setsockopt");
             exit(EXIT_FAILURE);
         }
 

@@ -19,6 +19,18 @@
 // Project header
 #include "common.h"
 
+char *initialize_string(size_t size)
+{
+    char *p = (char *)malloc(size * sizeof(char));
+    if (p == NULL)
+    {
+        perror("Failed to allocate memory");
+        return NULL;
+    }
+    memset(p, 0, size);
+    return p;
+}
+
 void recvall(int socket, char *buffer, size_t buffer_size)
 {
     size_t total_received = 0;

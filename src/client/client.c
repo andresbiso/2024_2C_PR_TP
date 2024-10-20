@@ -29,21 +29,20 @@ int main(int argc, char *argv[])
 
     if ((ip_number = initialize_string(INET_ADDRSTRLEN)) == NULL)
     {
-        perror("Failed to allocate memory");
+        perror("client: failed to allocate memory");
         return EXIT_FAILURE;
     }
     if ((port_number = initialize_string(PORTSTRLEN)) == NULL)
     {
-        perror("Failed to allocate memory");
+        perror("client: failed to allocate memory");
         return EXIT_FAILURE;
     }
     strcpy(ip_number, DEFAULT_IP);
     strcpy(port_number, DEFAULT_PORT);
 
     parse_arguments(argc, argv, &port_number, &ip_number);
-    sockfd = setup_server(port_number, ip_number);
-    setup_signal_handler();
-    handle_connections(sockfd);
+    sockfd = setup_client(port_number, ip_number);
+    handle_connection(sockfd);
 
     // free allocated memory
     free(ip_number);
@@ -52,66 +51,36 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-void handle_connections(int sockfd)
+void handle_connection(int sockfd)
 {
-    struct sockaddr their_addr; // connector's address information
-    socklen_t sin_size;
-    char their_ipstr[INET_ADDRSTRLEN];
+    char *buf;
     char *msg;
-    int msglen, new_fd; // new connection on new_fd
+    int msglen, numbytes;
 
     if ((msg = initialize_string(INET_ADDRSTRLEN)) == NULL)
     {
-        perror("Failed to allocate memory");
+        perror("client: failed to allocate memory");
         exit(EXIT_FAILURE);
     }
-    strcpy(msg, "Hola, soy el server");
+    if ((buf = initialize_string(MAXDATASIZE)) == NULL)
+    {
+        perror("client: failed to allocate memory");
+        exit(EXIT_FAILURE);
+    }
+    strcpy(msg, "PING");
     msglen = strlen(msg);
 
-    // main accept() loop
+    // main loop
     while (1)
     {
-        sin_size = sizeof their_addr;
-        new_fd = accept(sockfd, &their_addr, &sin_size);
-        if (new_fd == -1)
-        {
-            perror("accept");
-            continue;
-        }
-
-        inet_ntop(their_addr.sa_family,
-                  &(((struct sockaddr_in *)&their_addr)->sin_addr),
-                  their_ipstr,
-                  sizeof their_ipstr);
-        printf("server: obtuvo conexión de %s\n", their_ipstr);
-
-        if (fork() == 0)
-        {
-            // this is the child process
-            // child doesn't need the listener
-            close(sockfd);
-            if (send(new_fd, msg, msglen, 0) == -1)
-                perror("send");
-            close(new_fd);
-            exit(EXIT_SUCCESS);
-        }
-        // parent doesn't need this
-        close(new_fd);
+        recvall(sockfd, buf, MAXDATASIZE - 1);
+        printf("client: received \"%s\"\n", buf);
+        close(sockfd);
+        break;
     }
 
     free(msg);
-}
-
-char *initialize_string(size_t size)
-{
-    char *p = (char *)malloc(size * sizeof(char));
-    if (p == NULL)
-    {
-        perror("Failed to allocate memory");
-        return NULL;
-    }
-    memset(p, 0, size);
-    return p;
+    free(buf);
 }
 
 void parse_arguments(int argc, char *argv[], char **port_number, char **ip_number)
@@ -142,7 +111,7 @@ void parse_arguments(int argc, char *argv[], char **port_number, char **ip_numbe
             }
             else
             {
-                printf("Error: Opción o argumento no soportado: %s\n", argv[i]);
+                printf("client: Opción o argumento no soportado: %s\n", argv[i]);
                 show_help();
                 exit(EXIT_FAILURE);
             }
@@ -150,7 +119,7 @@ void parse_arguments(int argc, char *argv[], char **port_number, char **ip_numbe
     }
 }
 
-int setup_server(char *port_number, char *ip_number)
+int setup_client(char *port_number, char *ip_number)
 {
     int returned_value, sockfd, yes = 1;
     char my_ipstr[INET_ADDRSTRLEN];
@@ -162,15 +131,14 @@ int setup_server(char *port_number, char *ip_number)
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET; // AF_INET to force version IPv4
     hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE; // use my IP
 
     if ((returned_value = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
     {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(returned_value));
+        fprintf(stderr, "client: getaddrinfo: %s\n", gai_strerror(returned_value));
         return 1;
     }
 
-    puts("Direcciones IP para el \"Server\"");
+    puts("client: direcciones resueltas");
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
         ipv4 = (struct sockaddr_in *)p->ai_addr;
@@ -181,28 +149,20 @@ int setup_server(char *port_number, char *ip_number)
         printf("->  IPv4: %s\n", my_ipstr);
     }
 
-    // loop through all the results and bind to the first we can
+    // loop through all the results and connect to the first we can
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
                              p->ai_protocol)) == -1)
         {
-            perror("server: socket");
+            perror("client: socket");
             continue;
         }
 
-        // Ask the kernel to let me reuse the socket if already in use from previous run
-        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-                       sizeof(int)) == -1)
-        {
-            perror("setsockopt");
-            exit(EXIT_FAILURE);
-        }
-
-        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
+        if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1)
         {
             close(sockfd);
-            perror("server: bind");
+            perror("client: connect");
             continue;
         }
 
@@ -214,38 +174,31 @@ int setup_server(char *port_number, char *ip_number)
 
     if (p == NULL)
     {
-        fprintf(stderr, "server: no pudo realizarse el bind\n");
+        fprintf(stderr, "client: no pudo realizarse el connect\n");
         exit(EXIT_FAILURE);
     }
 
-    if (listen(sockfd, BACKLOG) == -1)
-    {
-        perror("listen");
-        exit(EXIT_FAILURE);
-    }
-
-    // Show listening ip and port
+    // Show connect ip and port
     ipv4 = (struct sockaddr_in *)p->ai_addr;
     my_addr = &(ipv4->sin_addr);
     inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof my_ipstr);
 
-    printf("server: %s:%s\n", my_ipstr, port_number);
-    puts("server: esperando conexiones...");
+    printf("client: conectado a %s:%s\n", my_ipstr, port_number);
 
     return sockfd;
 }
 
 void show_help()
 {
-    puts("Uso: server [opciones]");
+    puts("Uso: client [opciones]");
     puts("Opciones:");
     puts("  --help      Muestra este mensaje de ayuda");
     puts("  --version   Muestra version del programa");
-    puts("  --port <puerto> Especificar el número de puerto");
-    puts("  --ip <ip> Especificar el número de ip");
+    puts("  --port <puerto> Especificar el número de puerto del servidor");
+    puts("  --ip <ip> Especificar el número de ip del servidor");
 }
 
 void show_version()
 {
-    printf("Server Version %s\n", VERSION);
+    printf("Client Version %s\n", VERSION);
 }
