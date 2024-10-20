@@ -1,5 +1,5 @@
-#ifndef SERVER_H
-#define SERVER_H
+#ifndef CLIENT_H
+#define CLIENT_H
 
 // Socket libraries
 #include <sys/types.h>
@@ -7,9 +7,9 @@
 #include <netdb.h>
 
 // Constants
-#define BACKLOG 10 // how many pending connections queue will hold
 #define DEFAULT_IP "127.0.0.1"
-#define DEFAULT_PORT "3490" // the port users will be connecting to
+#define DEFAULT_PORT "3490" // the port client will be connecting to
+#define MAXDATASIZE 100     // max number of bytes we can get at once
 #define PORTSTRLEN 6        // Enough to hold "65535" + '\0'
 #define VERSION "0.0.1"
 
@@ -23,4 +23,4 @@ void show_help(void);
 void show_version(void);
 void sigchld_handler(int s);
 
-#endif // SERVER_H
+#endif // CLIENT_H

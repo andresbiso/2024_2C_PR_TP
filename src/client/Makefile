@@ -11,13 +11,13 @@ LDFLAGS = -lpthread
 DIST_DIR = dist
 
 # Define the output binary
-TARGET = $(DIST_DIR)/http_server
+TARGET = $(DIST_DIR)/client
 
 # Define the source files
-SRCS = main.c server.c
+SRCS = client.c
 
 # Define the header files (for dependency tracking)
-HEADERS = main.h server.h http.h
+HEADERS = client.h
 
 # Define the object files
 OBJS = $(SRCS:.c=.o)
@@ -40,5 +40,10 @@ $(TARGET): $(OBJS) | $(DIST_DIR)
 # Clean up the binaries and object files
 clean:
 	rm -rf $(DIST_DIR) $(OBJS)
+
+clean_obj:
+	rm -rf $(OBJS)
+
+build: all clean_obj
 
 .PHONY: all clean
