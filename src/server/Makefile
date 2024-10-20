@@ -14,10 +14,10 @@ DIST_DIR = dist
 TARGET = $(DIST_DIR)/server
 
 # Define the source files
-SRCS = server.c
+SRCS = server.c	../shared/common.c
 
 # Define the header files (for dependency tracking)
-HEADERS = server.h
+HEADERS = server.h ../shared/common.h
 
 # Define the object files
 OBJS = $(SRCS:.c=.o)

@@ -1,20 +1,23 @@
-// Standard libraries
+// Standard library headers
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
 
-// Socket libraries
-#include <sys/types.h>
+// Networking headers
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-// Other system libraries
+// System headers
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
+
+// Shared headers
+#include "../shared/common.h"
 
 // Project header
 #include "server.h"
@@ -232,23 +235,6 @@ int setup_server(char *port_number, char *ip_number)
     return sockfd;
 }
 
-// Setup signal handler for reaping zombie processes that appear as the fork()ed child processes exit.
-// This code ensures that terminated child processes are cleaned up immediately,
-// preventing resource leaks and keeping the process table uncluttered.
-void setup_signal_handler()
-{
-    struct sigaction sa;
-
-    sa.sa_handler = sigchld_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART; // Restart interrupted system calls
-    if (sigaction(SIGCHLD, &sa, NULL) == -1)
-    {
-        perror("sigaction");
-        exit(EXIT_FAILURE);
-    }
-}
-
 void show_help()
 {
     puts("Uso: server [opciones]");
@@ -262,18 +248,4 @@ void show_help()
 void show_version()
 {
     printf("Server Version %s\n", VERSION);
-}
-
-// Function to reap all dead processes
-void sigchld_handler(int s)
-{
-    (void)s; // quiet unused variable warning
-
-    // waitpid() might overwrite errno, so we save and restore it:
-    int saved_errno = errno;
-
-    while (waitpid(-1, NULL, WNOHANG) > 0)
-        ;
-
-    errno = saved_errno;
 }

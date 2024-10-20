@@ -1,10 +1,12 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-// Socket libraries
-#include <sys/types.h>
+// Networking headers
 #include <sys/socket.h>
 #include <netdb.h>
+
+// System headers
+#include <sys/types.h>
 
 // Constants
 #define DEFAULT_IP "127.0.0.1"

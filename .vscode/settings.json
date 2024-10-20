@@ -10,6 +10,10 @@
     "types.h": "c",
     "string.h": "c",
     "_string.h": "c",
-    "sstream": "c"
+    "sstream": "c",
+    "signal.h": "c",
+    "netdb.h": "c",
+    "inet.h": "c",
+    "thread": "c"
   }
 }
