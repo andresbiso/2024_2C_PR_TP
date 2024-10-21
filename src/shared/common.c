@@ -19,10 +19,13 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+// Other project headers
+#include "pack.h"
+
 // Project header
 #include "common.h"
 
-int malloc_string(char **s, uint32_t size)
+int malloc_string(char **s, int32_t size)
 {
     *s = (char *)malloc(size * sizeof(char));
     if (*s == NULL)
@@ -36,9 +39,9 @@ int malloc_string(char **s, uint32_t size)
 }
 
 // use this function when you know the size the data
-long recvall(int sockfd, char *buffer, uint32_t buffer_size)
+long recvall(int sockfd, char *buffer, int32_t buffer_size)
 {
-    uint32_t bytesleft, received, total_received;
+    int32_t bytesleft, received, total_received;
 
     total_received = 0;
     bytesleft = buffer_size;
@@ -68,10 +71,10 @@ long recvall(int sockfd, char *buffer, uint32_t buffer_size)
 }
 
 // use this function if you don't know the real size of the data
-long recvall_dynamic(int sockfd, char **buffer, uint32_t *buffer_size)
+long recvall_dynamic(int sockfd, char **buffer, int32_t *buffer_size)
 {
-    uint32_t initial_size, total_received;
-    uint32_t received;
+    int32_t initial_size, total_received;
+    int32_t received;
 
     initial_size = *buffer_size;
     total_received = 0;
@@ -114,11 +117,11 @@ long recvall_dynamic(int sockfd, char **buffer, uint32_t *buffer_size)
 }
 
 // recvall_dynamic and also prevents deadlocks
-long recvall_dynamic_timeout(int sockfd, char **buffer, uint32_t *buffer_size)
+long recvall_dynamic_timeout(int sockfd, char **buffer, int32_t *buffer_size)
 {
     int flags, timeout;
-    uint32_t initial_size, total_received;
-    uint32_t received;
+    int32_t initial_size, total_received;
+    int32_t received;
 
     timeout = 1;
     initial_size = *buffer_size;
@@ -214,12 +217,12 @@ long recvall_dynamic_timeout(int sockfd, char **buffer, uint32_t *buffer_size)
     return total_received;
 }
 
-long sendall(int sockfd, const char *buffer, uint32_t length)
+long sendall(int sockfd, const char *buffer, int32_t length)
 {
-    uint32_t total_sent = 0;
+    int32_t total_sent = 0;
     while (total_sent < length)
     {
-        uint32_t sent = send(sockfd, buffer + total_sent, length - total_sent, 0);
+        int32_t sent = send(sockfd, buffer + total_sent, length - total_sent, 0);
         if (sent == -1)
         {
             puts("Error al querer enviar datos");
@@ -272,9 +275,14 @@ int free_simple_packet(Simple_Packet *packet)
 int send_simple_packet(int sockfd, Simple_Packet *packet)
 {
     char *buffer;
+    unsigned char *ubuffer;
+    int packetsize;
 
-    malloc_string(&buffer, sizeof(uint32_t) + 1);
-    pack_int(buffer, packet->length);
+    malloc_string(&buffer, sizeof(packet->length));
+    ubuffer = (unsigned char *)malloc(sizeof(packet->length));
+    packetsize = pack(ubuffer, "l", packet->length);
+    printf("packet is %d bytes\n", packetsize);
+    memcpy(buffer, ubuffer, sizeof(packet->length));
 
     // Send the length first
     if (sendall(sockfd, buffer, sizeof(buffer)) == -1)
@@ -293,17 +301,22 @@ int send_simple_packet(int sockfd, Simple_Packet *packet)
     printf("length: %d\n", packet->length);
 
     free(buffer);
+    free(ubuffer);
     return 0; // Success
 }
 
 int recv_simple_packet(int sockfd, Simple_Packet **packet)
 {
     char *buffer;
+    int32_t *buffer_size;
+    unsigned char *ubuffer;
 
-    malloc_string(&buffer, sizeof(uint32_t) + 1);
+    malloc_string(&buffer, sizeof(int32_t));
+    ubuffer = (unsigned char *)malloc(sizeof(int32_t));
+    buffer_size = (int32_t *)malloc(sizeof(int32_t));
 
     // Receive the length first
-    if (recvall_dynamic_timeout(sockfd, &buffer, (uint32_t *)(sizeof(uint32_t) + 1)) <= 0)
+    if (recvall_dynamic_timeout(sockfd, &buffer, buffer_size) <= 0)
     {
         return -1;
     }
@@ -313,7 +326,9 @@ int recv_simple_packet(int sockfd, Simple_Packet **packet)
     {
         return -1;
     }
-    (*packet)->length = unpack_int(buffer);
+    memcpy(ubuffer, buffer, sizeof(int32_t));
+    unpack(ubuffer, "l", (*packet)->length);
+    printf("length packet: %d\n", (*packet)->length);
 
     // Allocate memory for the data
     if (malloc_string(&((*packet)->data), (*packet)->length) != 0)
@@ -326,26 +341,9 @@ int recv_simple_packet(int sockfd, Simple_Packet **packet)
     {
         return -1;
     }
-    printf("data: %s\n", (*packet)->data);
-    printf("length: %d\n", (*packet)->length);
     free(buffer);
+    free(buffer_size);
     return 0; // Success
-}
-
-void pack_int(char *buffer, int value)
-{
-    // Convert to network byte order and copy to buffer
-    int network_value = htonl(value);
-    memcpy(buffer, &network_value, sizeof(network_value));
-}
-
-int unpack_int(char *buffer)
-{
-    int network_value;
-    memcpy(&network_value, buffer, sizeof(network_value));
-
-    // Convert from network byte order to host byte order
-    return ntohl(network_value);
 }
 
 // ONLY USE IF USING FORK()

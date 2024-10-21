@@ -14,10 +14,10 @@ DIST_DIR = dist
 TARGET = $(DIST_DIR)/client
 
 # Define the source files
-SRCS = client.c	../shared/common.c
+SRCS = client.c	../shared/common.c ../shared/pack.c
 
 # Define the header files (for dependency tracking)
-HEADERS = client.h ../shared/common.h
+HEADERS = client.h ../shared/common.h ../shared/pack.h
 
 # Define the object files
 OBJS = $(SRCS:.c=.o)
