@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -21,17 +22,17 @@
 // Project header
 #include "common.h"
 
-char *initialize_string(size_t size)
+int malloc_string(char **s, size_t size)
 {
-    char *p = (char *)malloc(size * sizeof(char));
-    if (p == NULL)
+    *s = (char *)malloc(size * sizeof(char));
+    if (*s == NULL)
     {
         puts("Error al asignar memoria");
         perror("malloc");
-        exit(EXIT_FAILURE);
+        return -1;
     }
-    memset(p, 0, size);
-    return p;
+    memset(*s, 0, size);
+    return 0;
 }
 
 // use this function when you know the size the data
@@ -50,7 +51,7 @@ long recvall(int sockfd, char *buffer, size_t buffer_size)
             free(buffer);
             puts("Error al querer recibir datos");
             perror("recv");
-            exit(EXIT_FAILURE);
+            return -1;
         }
         else if (received == 0)
         {
@@ -83,7 +84,7 @@ long recvall_dynamic(int sockfd, char **buffer, size_t *buffer_size)
             free(*buffer);
             puts("Error al querer recibir datos");
             perror("recv");
-            exit(EXIT_FAILURE);
+            return -1;
         }
         else if (received == 0)
         {
@@ -100,7 +101,7 @@ long recvall_dynamic(int sockfd, char **buffer, size_t *buffer_size)
             {
                 puts("Error al reasignar memoria");
                 perror("realloc");
-                exit(EXIT_FAILURE);
+                return -1;
             }
             printf("Buffer incrementado de %ld bytes a %ld bytes\n", *buffer_size, initial_size);
             *buffer_size = initial_size;
@@ -132,14 +133,14 @@ long recvall_dynamic_timeout(int sockfd, char **buffer, size_t *buffer_size)
     {
         perror("fcntl");
         free(*buffer);
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     if (fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1)
     {
         perror("fcntl");
         free(*buffer);
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     // beginning time
@@ -173,7 +174,7 @@ long recvall_dynamic_timeout(int sockfd, char **buffer, size_t *buffer_size)
             free(*buffer);
             puts("Error al querer recibir datos");
             perror("recv");
-            exit(EXIT_FAILURE);
+            return -1;
         }
         else if (received == 0)
         {
@@ -208,7 +209,7 @@ long recvall_dynamic_timeout(int sockfd, char **buffer, size_t *buffer_size)
     {
         perror("fcntl");
         free(*buffer);
-        exit(EXIT_FAILURE);
+        return -1;
     }
     return total_received;
 }
@@ -223,7 +224,7 @@ long sendall(int sockfd, const char *buffer, size_t length)
         {
             puts("Error al querer enviar datos");
             perror("send");
-            exit(EXIT_FAILURE);
+            return -1;
         }
         total_sent += sent;
     }
@@ -231,11 +232,125 @@ long sendall(int sockfd, const char *buffer, size_t length)
     return total_sent;
 }
 
+int create_simple_packet(Simple_Packet **packet, const char *data)
+{
+    *packet = (Simple_Packet *)malloc(sizeof(Simple_Packet));
+    if (*packet == NULL)
+    {
+        puts("Error al asignar memoria");
+        perror("malloc");
+        return -1; // Memory allocation failed
+    }
+
+    (*packet)->length = strlen(data);
+    if (malloc_string(&((*packet)->data), (*packet)->length) != 0)
+    {
+        free(*packet); // Free the struct if string allocation fails
+        return -1;
+    }
+
+    strcpy((*packet)->data, data);
+    return 0; // Success
+}
+
+int free_simple_packet(Simple_Packet *packet)
+{
+    if (packet == NULL)
+    {
+        return -1; // Error: Packet is NULL
+    }
+
+    if (packet->data != NULL)
+    {
+        free(packet->data);
+    }
+    free(packet); // Free the packet struct itself
+
+    return 0; // Success
+}
+
+int send_simple_packet(int sockfd, Simple_Packet *packet)
+{
+    char *buffer;
+
+    malloc_string(&buffer, sizeof(uint32_t) + 1);
+    pack_int(buffer, packet->length);
+
+    // Send the length first
+    if (sendall(sockfd, buffer, sizeof(buffer)) == -1)
+    {
+        free(buffer);
+        return -1;
+    }
+
+    // Send the data
+    if (sendall(sockfd, packet->data, packet->length) == -1)
+    {
+        return -1;
+    }
+
+    free(buffer);
+    return 0; // Success
+}
+
+int recv_simple_packet(int sockfd, Simple_Packet **packet)
+{
+    uint32_t length;
+    char *buffer;
+
+    malloc_string(&buffer, sizeof(uint32_t) + 1);
+
+    // Receive the length first
+    if (recvall(sockfd, buffer, sizeof(uint32_t) + 1) <= 0)
+    {
+        return -1;
+    }
+    length = unpack_int(buffer);
+
+    // Create packet
+    if (create_simple_packet(packet, "") != 0)
+    {
+        return -1;
+    }
+    (*packet)->length = length;
+
+    // Allocate memory for the data
+    if (malloc_string(&((*packet)->data), length) != 0)
+    {
+        free_simple_packet(*packet);
+        return -1;
+    }
+
+    if (recvall(sockfd, (*packet)->data, length) <= 0)
+    {
+        return -1;
+    }
+
+    free(buffer);
+    return 0; // Success
+}
+
+void pack_int(char *buffer, int value)
+{
+    // Convert to network byte order and copy to buffer
+    int network_value = htonl(value);
+    memcpy(buffer, &network_value, sizeof(network_value));
+}
+
+int unpack_int(char *buffer)
+{
+    int network_value;
+    memcpy(&network_value, buffer, sizeof(network_value));
+
+    // Convert from network byte order to host byte order
+    return ntohl(network_value);
+}
+
 // ONLY USE IF USING FORK()
 // Setup signal handler for reaping zombie processes that appear as the fork()ed child processes exit.
 // This code ensures that terminated child processes are cleaned up immediately,
 // preventing resource leaks and keeping the process table uncluttered.
-void setup_signal_handler()
+int setup_signal_handler()
 {
     struct sigaction sa;
 
@@ -245,8 +360,9 @@ void setup_signal_handler()
     if (sigaction(SIGCHLD, &sa, NULL) == -1)
     {
         perror("sigaction");
-        exit(EXIT_FAILURE);
+        return -1;
     }
+    return 0;
 }
 
 // ONLY USE IF USING FORK()

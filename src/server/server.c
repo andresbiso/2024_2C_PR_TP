@@ -27,8 +27,14 @@ int main(int argc, char *argv[])
     char *ip_number, *port_number;
     int sockfd; // listen on sock_fd
 
-    ip_number = initialize_string(INET_ADDRSTRLEN);
-    port_number = initialize_string(PORTSTRLEN);
+    if (malloc_string(&ip_number, INET_ADDRSTRLEN) != 0)
+    {
+        exit(EXIT_FAILURE);
+    }
+    if (malloc_string(&port_number, PORTSTRLEN) != 0)
+    {
+        exit(EXIT_FAILURE);
+    }
     strcpy(ip_number, DEFAULT_IP);
     strcpy(port_number, DEFAULT_PORT);
 
@@ -46,35 +52,75 @@ int main(int argc, char *argv[])
 
 void handle_client(int client_sockfd)
 {
-    char *data, *msg;
-    int msglen;                               // new connection on new_fd
-    size_t buffer_size = DEFAULT_BUFFER_SIZE; // Define the initial buffer size
+    char *data, *message; // new connection on new_fd
+    Simple_Packet *send_packet, *recv_packet;
 
-    msg = initialize_string(DEFAULT_BUFFER_SIZE);
-    data = initialize_string(DEFAULT_BUFFER_SIZE);
+    if (malloc_string(&message, DEFAULT_BUFFER_SIZE) != 0)
+    {
+        exit(EXIT_FAILURE);
+    }
+    if (malloc_string(&data, DEFAULT_BUFFER_SIZE) != 0)
+    {
+        exit(EXIT_FAILURE);
+    }
 
     // send initial server message
-    strcpy(msg, "Hola, soy el server");
-    msglen = strlen(msg);
-    sendall(client_sockfd, msg, msglen);
-    printf("server: mensaje enviado: \"%s\"\n", msg);
+    strcpy(message, "Hola, soy el server");
+    if (create_simple_packet(&send_packet, message) < 0)
+    {
+        fprintf(stderr, "Error al crear packet\n");
+        free(message);
+        free(data);
+        exit(EXIT_FAILURE);
+    }
+    if (send_simple_packet(client_sockfd, send_packet) < 0)
+    {
+        fprintf(stderr, "Error al enviar packet\n");
+        free_simple_packet(send_packet);
+        free(message);
+        free(data);
+        exit(EXIT_FAILURE);
+    }
+    printf("server: mensaje enviado: \"%s\"\n", send_packet->data);
+    free_simple_packet(send_packet);
     // receive initial message from client
-    recvall_dynamic_timeout(client_sockfd, &data, &buffer_size);
-    printf("server: mensaje recibido: \"%s\"\n", data);
+    if (recv_simple_packet(client_sockfd, &recv_packet) < 0)
+    {
+        fprintf(stderr, "Error al recibir packet\n");
+        free_simple_packet(recv_packet);
+        free(message);
+        free(data);
+        exit(EXIT_FAILURE);
+    }
+    printf("server: mensaje recibido: \"%s\"\n", recv_packet->data);
+    free_simple_packet(recv_packet);
     // send PONG message
     if (strstr(data, "PING") != NULL)
     {
         puts("server: el mensaje contiene \"PING\"");
-        strcpy(msg, "PONG");
-        msglen = strlen(msg);
-        if (sendall(client_sockfd, msg, msglen) > 0)
+        strcpy(message, "PONG");
+        if (create_simple_packet(&send_packet, message) < 0)
         {
-            printf("server: mensaje enviado: \"%s\"\n", msg);
+            fprintf(stderr, "Error al crear packet\n");
+            free(message);
+            free(data);
+            exit(EXIT_FAILURE);
         }
+        if (send_simple_packet(client_sockfd, send_packet) < 0)
+        {
+            fprintf(stderr, "Error al enviar packet\n");
+            free_simple_packet(send_packet);
+            free(message);
+            free(data);
+            exit(EXIT_FAILURE);
+        }
+        printf("server: mensaje enviado: \"%s\"\n", recv_packet->data);
+        free_simple_packet(send_packet);
     }
     close(client_sockfd);
+
     free(data);
-    free(msg);
+    free(message);
 }
 
 void handle_connections(int sockfd)
