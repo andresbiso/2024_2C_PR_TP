@@ -12,7 +12,9 @@
 #include <sys/socket.h>
 
 // System headers
+#include <fcntl.h>
 #include <signal.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -34,18 +36,58 @@ char *initialize_string(size_t size)
 
 int recvall(int sockfd, char **buffer, size_t *buffer_size)
 {
+    int flags, timeout;
     size_t initial_size, total_received;
     ssize_t received;
 
+    timeout = 1;
     initial_size = *buffer_size;
     total_received = 0;
 
-    while (total_received < *buffer_size)
+    struct timeval begin, now;
+    double timediff;
+
+    // Set socket to non-blocking mode
+    flags = fcntl(sockfd, F_GETFL, 0);
+    if (flags == -1)
     {
+        perror("fcntl");
+        free(*buffer);
+        exit(EXIT_FAILURE);
+    }
+
+    if (fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1)
+    {
+        perror("fcntl");
+        free(*buffer);
+        exit(EXIT_FAILURE);
+    }
+
+    // beginning time
+    gettimeofday(&begin, NULL);
+
+    while (1)
+    {
+        gettimeofday(&now, NULL);
+
+        // time elapsed in seconds
+        timediff = (now.tv_sec - begin.tv_sec) + 1e-6 * (now.tv_usec - begin.tv_usec);
+
+        // if you got some data, then break after timeout
+        if (total_received > 0 && timediff > timeout)
+        {
+            break;
+        }
+        else if (timediff > timeout * 2)
+        {
+            // if you got no data at all, wait a little longer, twice the timeout
+            break;
+        }
+
         received = recv(sockfd, *buffer + total_received, initial_size - total_received - 1, 0);
         if (received == -1)
         {
-            if (errno == EINTR)
+            if (errno == EINTR || errno == EWOULDBLOCK || errno == EAGAIN)
             {
                 continue; // if interrupted by signal, just continue
             }
@@ -56,10 +98,14 @@ int recvall(int sockfd, char **buffer, size_t *buffer_size)
         }
         else if (received == 0)
         {
-            break; // Connection closed by the server
+            // received = 0: connection closed by the server
+            break;
         }
 
         total_received += received;
+
+        // reset beginning time
+        gettimeofday(&begin, NULL);
 
         if (total_received >= initial_size - 1)
         {
@@ -73,19 +119,18 @@ int recvall(int sockfd, char **buffer, size_t *buffer_size)
             printf("Buffer incrementado de %ld bytes a %ld bytes\n", *buffer_size, initial_size);
             *buffer_size = initial_size;
         }
-
-        // Exit if no more data to read
-        printf("received: %ld\n", received);
-        printf("total_received: %ld\n", total_received);
-        printf("buffer_size: %ld\n", *buffer_size);
-        if (received == 0 || received < (*buffer_size - total_received))
-        {
-            break;
-        }
     }
 
     (*buffer)[total_received] = '\0'; // Null-terminate the string
     printf("Total recibido: %ld bytes\n", total_received);
+
+    // Set socket back to blocking mode
+    if (fcntl(sockfd, F_SETFL, flags) == -1)
+    {
+        perror("fcntl");
+        free(*buffer);
+        exit(EXIT_FAILURE);
+    }
     return total_received;
 }
 
