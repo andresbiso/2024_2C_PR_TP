@@ -65,16 +65,16 @@ void handle_connection(int server_sockfd)
     }
 
     // receive initial message from server
-    if (recv_simple_packet(server_sockfd, &recv_packet) < 0)
-    {
-        fprintf(stderr, "Error al recibir packet\n");
-        free_simple_packet(recv_packet);
-        free(message);
-        free(data);
-        exit(EXIT_FAILURE);
-    }
-    printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
-    free_simple_packet(recv_packet);
+    // if (recv_simple_packet(server_sockfd, &recv_packet) < 0)
+    // {
+    //     fprintf(stderr, "Error al recibir packet\n");
+    //     free_simple_packet(recv_packet);
+    //     free(message);
+    //     free(data);
+    //     exit(EXIT_FAILURE);
+    // }
+    // printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
+    // free_simple_packet(recv_packet);
 
     // send PING message
     strcpy(message, "PING");
