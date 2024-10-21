@@ -59,7 +59,7 @@ void handle_client(int client_sockfd)
     sendall(client_sockfd, msg, msglen);
     printf("server: mensaje enviado: \"%s\"\n", msg);
     // receive initial message from client
-    recvall(client_sockfd, &data, &buffer_size);
+    recvall_dynamic_timeout(client_sockfd, &data, &buffer_size);
     printf("server: mensaje recibido: \"%s\"\n", data);
     // send PONG message
     if (strstr(data, "PING") != NULL)

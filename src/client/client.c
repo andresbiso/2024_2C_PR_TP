@@ -54,7 +54,7 @@ void handle_connection(int sockfd)
     data = initialize_string(DEFAULT_BUFFER_SIZE);
 
     // receive initial message from server
-    recvall(sockfd, &data, &buffer_size);
+    recvall_dynamic_timeout(sockfd, &data, &buffer_size);
     printf("client: mensaje recibido: \"%s\"\n", data);
     // send PING message
     strcpy(msg, "PING");
@@ -63,7 +63,7 @@ void handle_connection(int sockfd)
     printf("client: mensaje enviado: \"%s\"\n", msg);
     memset(data, 0, buffer_size);
     // receive responmse message from server
-    recvall(sockfd, &data, &buffer_size);
+    recvall_dynamic_timeout(sockfd, &data, &buffer_size);
     printf("client: mensaje recibido: \"%s\"\n", data);
     close(sockfd);
 

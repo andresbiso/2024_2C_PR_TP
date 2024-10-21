@@ -34,7 +34,83 @@ char *initialize_string(size_t size)
     return p;
 }
 
-int recvall(int sockfd, char **buffer, size_t *buffer_size)
+long recvall(int sockfd, char *buffer, size_t buffer_size)
+{
+    ssize_t bytesleft, received, total_received;
+
+    total_received = 0;
+    bytesleft = buffer_size;
+
+    while (total_received < buffer_size)
+    {
+        received = recv(sockfd, buffer + total_received, bytesleft - total_received - 1, 0);
+        if (received == -1)
+        {
+            free(buffer);
+            puts("Error al querer recibir datos");
+            perror("recv");
+            exit(EXIT_FAILURE);
+        }
+        else if (received == 0)
+        {
+            // received = 0: connection closed by the server
+            break;
+        }
+
+        total_received += received;
+    }
+
+    buffer[total_received] = '\0'; // Null-terminate the string
+    printf("Total recibido: %ld bytes\n", total_received);
+    return total_received;
+}
+
+long recvall_dynamic(int sockfd, char **buffer, size_t *buffer_size)
+{
+    size_t initial_size, total_received;
+    ssize_t received;
+
+    initial_size = *buffer_size;
+    total_received = 0;
+
+    while (1)
+    {
+        received = recv(sockfd, *buffer + total_received, initial_size - total_received - 1, 0);
+        if (received == -1)
+        {
+            free(*buffer);
+            puts("Error al querer recibir datos");
+            perror("recv");
+            exit(EXIT_FAILURE);
+        }
+        else if (received == 0)
+        {
+            // received = 0: connection closed by the server
+            break;
+        }
+
+        total_received += received;
+
+        if (total_received >= initial_size - 1)
+        {
+            initial_size *= 2; // Double the buffer size
+            if ((*buffer = (char *)realloc(*buffer, initial_size)) == NULL)
+            {
+                puts("Error al reasignar memoria");
+                perror("realloc");
+                exit(EXIT_FAILURE);
+            }
+            printf("Buffer incrementado de %ld bytes a %ld bytes\n", *buffer_size, initial_size);
+            *buffer_size = initial_size;
+        }
+    }
+
+    (*buffer)[total_received] = '\0'; // Null-terminate the string
+    printf("Total recibido: %ld bytes\n", total_received);
+    return total_received;
+}
+
+long recvall_dynamic_timeout(int sockfd, char **buffer, size_t *buffer_size)
 {
     int flags, timeout;
     size_t initial_size, total_received;
@@ -134,7 +210,7 @@ int recvall(int sockfd, char **buffer, size_t *buffer_size)
     return total_received;
 }
 
-int sendall(int sockfd, const char *buffer, size_t length)
+long sendall(int sockfd, const char *buffer, size_t length)
 {
     size_t total_sent = 0;
     while (total_sent < length)
