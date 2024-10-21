@@ -15,6 +15,7 @@
     "netdb.h": "c",
     "inet.h": "c",
     "thread": "c",
-    "common.h": "c"
+    "common.h": "c",
+    "time.h": "c"
   }
 }
