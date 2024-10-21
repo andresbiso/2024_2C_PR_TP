@@ -31,15 +31,17 @@ char *initialize_string(size_t size)
     return p;
 }
 
-int recvall(int socket, char **buffer, size_t *buffer_size)
+int recvall(int sockfd, char **buffer, size_t *buffer_size)
 {
-    size_t total_received = 0;
+    size_t initial_size, total_received;
     ssize_t received;
-    size_t initial_size = *buffer_size;
+
+    initial_size = *buffer_size;
+    total_received = 0;
 
     while (1)
     {
-        received = recv(socket, *buffer + total_received, initial_size - total_received - 1, 0);
+        received = recv(sockfd, *buffer + total_received, initial_size - total_received - 1, 0);
         if (received == -1)
         {
             free(*buffer);
@@ -72,12 +74,12 @@ int recvall(int socket, char **buffer, size_t *buffer_size)
     return total_received;
 }
 
-int sendall(int socket, const char *buffer, size_t length)
+int sendall(int sockfd, const char *buffer, size_t length)
 {
     size_t total_sent = 0;
     while (total_sent < length)
     {
-        ssize_t sent = send(socket, buffer + total_sent, length - total_sent, 0);
+        ssize_t sent = send(sockfd, buffer + total_sent, length - total_sent, 0);
         if (sent == -1)
         {
             perror("send: fallo al querer enviar datos");

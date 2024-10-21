@@ -53,12 +53,6 @@ void handle_client(int client_sockfd)
     msg = initialize_string(DEFAULT_BUFFER_SIZE);
     data = initialize_string(DEFAULT_BUFFER_SIZE);
 
-    // char buffer[1024] = {0};
-    // recv(client_socket, buffer, 1024, 0);
-    // printf("Received from client: %s\n", buffer);
-    // send(client_socket, "Acknowledged", strlen("Acknowledged"), 0);
-    // close(client_socket);
-
     // send initial server message
     strcpy(msg, "Hola, soy el server");
     msglen = strlen(msg);
@@ -70,7 +64,7 @@ void handle_client(int client_sockfd)
     // send PONG message
     if (strstr(data, "PING") != NULL)
     {
-        puts("server: the message contains 'PING'\n");
+        puts("server: el mensaje contiene \"PING\"");
         strcpy(msg, "PONG");
         msglen = strlen(msg);
         if (sendall(client_sockfd, msg, msglen) > 0)
