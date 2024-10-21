@@ -51,6 +51,7 @@ void handle_client(int client_sockfd)
     size_t buffer_size = DEFAULT_BUFFER_SIZE; // Define the initial buffer size
 
     msg = initialize_string(DEFAULT_BUFFER_SIZE);
+    data = initialize_string(DEFAULT_BUFFER_SIZE);
 
     // char buffer[1024] = {0};
     // recv(client_socket, buffer, 1024, 0);
@@ -61,16 +62,11 @@ void handle_client(int client_sockfd)
     // send initial server message
     strcpy(msg, "Hola, soy el server");
     msglen = strlen(msg);
-    if (sendall(client_sockfd, msg, msglen) > 0)
-    {
-        printf("server: mensaje enviado: \"%s\"\n", msg);
-    }
+    sendall(client_sockfd, msg, msglen);
+    printf("server: mensaje enviado: \"%s\"\n", msg);
     // receive initial message from client
     recvall(client_sockfd, &data, &buffer_size);
-    if (recvall(client_sockfd, &data, &buffer_size) > 0)
-    {
-        printf("server: mensaje recibido: \"%s\"\n", data);
-    }
+    printf("server: mensaje recibido: \"%s\"\n", data);
     // send PONG message
     if (strstr(data, "PING") != NULL)
     {
@@ -83,6 +79,7 @@ void handle_client(int client_sockfd)
         }
     }
     close(client_sockfd);
+    free(data);
     free(msg);
 }
 

@@ -51,29 +51,24 @@ void handle_connection(int sockfd)
     size_t buffer_size = DEFAULT_BUFFER_SIZE; // Define the initial buffer size
 
     msg = initialize_string(DEFAULT_BUFFER_SIZE);
+    data = initialize_string(DEFAULT_BUFFER_SIZE);
 
     // receive initial message from server
-    if (recvall(sockfd, &data, &buffer_size) > 0)
-    {
-        printf("client: mensaje recibido: \"%s\"\n", data);
-    }
+    recvall(sockfd, &data, &buffer_size);
+    printf("client: mensaje recibido: \"%s\"\n", data);
     // send PING message
     strcpy(msg, "PING");
     msglen = strlen(msg);
-    if (sendall(sockfd, msg, msglen) > 0)
-    {
-        printf("client: mensaje enviado: \"%s\"\n", msg);
-    }
+    sendall(sockfd, msg, msglen);
+    printf("client: mensaje enviado: \"%s\"\n", msg);
     memset(data, 0, buffer_size);
     // receive responmse message from server
-    if (recvall(sockfd, &data, &buffer_size) > 0)
-    {
-        printf("client: mensaje recibido: \"%s\"\n", data);
-    }
+    recvall(sockfd, &data, &buffer_size);
+    printf("client: mensaje recibido: \"%s\"\n", data);
     close(sockfd);
 
-    free(msg);
     free(data);
+    free(msg);
 }
 
 void parse_arguments(int argc, char *argv[], char **port_number, char **ip_number)

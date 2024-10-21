@@ -37,8 +37,6 @@ int recvall(int socket, char **buffer, size_t *buffer_size)
     ssize_t received;
     size_t initial_size = *buffer_size;
 
-    *buffer = initialize_string(initial_size);
-
     while (1)
     {
         received = recv(socket, *buffer + total_received, initial_size - total_received - 1, 0);
