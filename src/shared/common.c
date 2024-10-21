@@ -34,6 +34,7 @@ char *initialize_string(size_t size)
     return p;
 }
 
+// use this function when you know the size the data
 long recvall(int sockfd, char *buffer, size_t buffer_size)
 {
     ssize_t bytesleft, received, total_received;
@@ -65,6 +66,7 @@ long recvall(int sockfd, char *buffer, size_t buffer_size)
     return total_received;
 }
 
+// use this function if you don't know the real size of the data
 long recvall_dynamic(int sockfd, char **buffer, size_t *buffer_size)
 {
     size_t initial_size, total_received;
@@ -110,6 +112,7 @@ long recvall_dynamic(int sockfd, char **buffer, size_t *buffer_size)
     return total_received;
 }
 
+// recvall_dynamic and also prevents deadlocks
 long recvall_dynamic_timeout(int sockfd, char **buffer, size_t *buffer_size)
 {
     int flags, timeout;

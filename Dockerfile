@@ -6,20 +6,21 @@ LABEL mantainer="Diego"
 RUN apt-get update \
     && apt-get install -y \
     software-properties-common \
-    wget \
-    git \
     curl \
-    netcat \
-    strace \
-    iproute2 \
-    hping3 \
-    gdb \
-    net-tools \
-    vim \
-    htop \
     dnsutils \
+    gdb \
+    git \
+    hping3 \
+    htop \
+    iproute2 \
     lsof \
-    valgrind
+    netcat \
+    net-tools \
+    strace \
+    telnet \
+    valgrind \
+    vim \
+    wget
 
 WORKDIR /home
 
