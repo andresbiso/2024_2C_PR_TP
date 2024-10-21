@@ -65,24 +65,24 @@ void handle_client(int client_sockfd)
     }
 
     // send initial server message
-    // strcpy(message, "Hola, soy el server");
-    // if (create_simple_packet(&send_packet, message) < 0)
-    // {
-    //     fprintf(stderr, "Error al crear packet\n");
-    //     free(message);
-    //     free(data);
-    //     exit(EXIT_FAILURE);
-    // }
-    // if (send_simple_packet(client_sockfd, send_packet) < 0)
-    // {
-    //     fprintf(stderr, "Error al enviar packet\n");
-    //     free_simple_packet(send_packet);
-    //     free(message);
-    //     free(data);
-    //     exit(EXIT_FAILURE);
-    // }
-    // printf("server: mensaje enviado: \"%s\"\n", send_packet->data);
-    // free_simple_packet(send_packet);
+    strcpy(message, "Hola, soy el server");
+    if (create_simple_packet(&send_packet, message) < 0)
+    {
+        fprintf(stderr, "Error al crear packet\n");
+        free(message);
+        free(data);
+        exit(EXIT_FAILURE);
+    }
+    if (send_simple_packet(client_sockfd, send_packet) < 0)
+    {
+        fprintf(stderr, "Error al enviar packet\n");
+        free_simple_packet(send_packet);
+        free(message);
+        free(data);
+        exit(EXIT_FAILURE);
+    }
+    printf("server: mensaje enviado: \"%s\"\n", send_packet->data);
+    free_simple_packet(send_packet);
     // receive initial message from client
     if (recv_simple_packet(client_sockfd, &recv_packet) < 0)
     {

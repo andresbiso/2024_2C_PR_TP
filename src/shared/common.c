@@ -48,7 +48,7 @@ long recvall(int sockfd, char *buffer, int32_t buffer_size)
 
     while (total_received < buffer_size)
     {
-        received = recv(sockfd, buffer + total_received, bytesleft - total_received - 1, 0);
+        received = recv(sockfd, buffer + total_received, bytesleft, 0);
         if (received == -1)
         {
             free(buffer);
@@ -278,14 +278,15 @@ int send_simple_packet(int sockfd, Simple_Packet *packet)
     unsigned char *ubuffer;
     int packetsize;
 
-    malloc_string(&buffer, sizeof(packet->length));
-    ubuffer = (unsigned char *)malloc(sizeof(packet->length));
+    malloc_string(&buffer, sizeof(int32_t));            // Allocate for int32_t length
+    ubuffer = (unsigned char *)malloc(sizeof(int32_t)); // Allocate for int32_t length
     packetsize = pack(ubuffer, "l", packet->length);
+
     printf("packet es de %d bytes\n", packetsize);
-    memcpy(buffer, ubuffer, sizeof(packet->length));
+    memcpy(buffer, ubuffer, sizeof(int32_t));
 
     // Send the length first
-    if (sendall(sockfd, buffer, sizeof(buffer)) == -1)
+    if (sendall(sockfd, buffer, sizeof(int32_t)) == -1)
     {
         free(buffer);
         return -1;
@@ -296,9 +297,6 @@ int send_simple_packet(int sockfd, Simple_Packet *packet)
     {
         return -1;
     }
-
-    printf("data: %s\n", packet->data);
-    printf("length: %d\n", packet->length);
 
     free(buffer);
     free(ubuffer);
@@ -326,9 +324,9 @@ int recv_simple_packet(int sockfd, Simple_Packet **packet)
     {
         return -1;
     }
+
     memcpy(ubuffer, buffer, sizeof(int32_t));
-    unpack(ubuffer, "l", (*packet)->length);
-    printf("length packet: %d\n", (*packet)->length);
+    unpack(ubuffer, "l", &((*packet)->length));
 
     // Allocate memory for the data
     if (malloc_string(&((*packet)->data), (*packet)->length) != 0)

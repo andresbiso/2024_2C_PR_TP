@@ -251,7 +251,7 @@ unsigned long long int unpacku64(unsigned char *buf)
 **
 **  (16-bit unsigned length is automatically prepended to strings)
 */
-
+// The values added to the buffer are in hexadecimal, can't be printed as strings.
 unsigned int pack(unsigned char *buf, char *format, ...)
 {
     va_list ap;
