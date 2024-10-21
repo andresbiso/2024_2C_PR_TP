@@ -14,11 +14,11 @@ typedef struct
     char *data;
 } Simple_Packet;
 
-int malloc_string(char **s, size_t size);
-long recvall(int sockfd, char *buffer, size_t buffer_size);
-long recvall_dynamic(int sockfd, char **buffer, size_t *buffer_size);
-long recvall_dynamic_timeout(int sockfd, char **buffer, size_t *buffer_size);
-long sendall(int sockfd, const char *buffer, size_t length);
+int malloc_string(char **s, uint32_t size);
+long recvall(int sockfd, char *buffer, uint32_t buffer_size);
+long recvall_dynamic(int sockfd, char **buffer, uint32_t *buffer_size);
+long recvall_dynamic_timeout(int sockfd, char **buffer, uint32_t *buffer_size);
+long sendall(int sockfd, const char *buffer, uint32_t length);
 int create_simple_packet(Simple_Packet **packet, char const *data);
 int free_simple_packet(Simple_Packet *packet);
 int send_simple_packet(int sockfd, Simple_Packet *packet);

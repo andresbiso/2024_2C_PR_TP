@@ -22,7 +22,7 @@
 // Project header
 #include "common.h"
 
-int malloc_string(char **s, size_t size)
+int malloc_string(char **s, uint32_t size)
 {
     *s = (char *)malloc(size * sizeof(char));
     if (*s == NULL)
@@ -36,9 +36,9 @@ int malloc_string(char **s, size_t size)
 }
 
 // use this function when you know the size the data
-long recvall(int sockfd, char *buffer, size_t buffer_size)
+long recvall(int sockfd, char *buffer, uint32_t buffer_size)
 {
-    ssize_t bytesleft, received, total_received;
+    uint32_t bytesleft, received, total_received;
 
     total_received = 0;
     bytesleft = buffer_size;
@@ -63,15 +63,15 @@ long recvall(int sockfd, char *buffer, size_t buffer_size)
     }
 
     buffer[total_received] = '\0'; // Null-terminate the string
-    printf("Total recibido: %ld bytes\n", total_received);
+    printf("Total recibido: %d bytes\n", total_received);
     return total_received;
 }
 
 // use this function if you don't know the real size of the data
-long recvall_dynamic(int sockfd, char **buffer, size_t *buffer_size)
+long recvall_dynamic(int sockfd, char **buffer, uint32_t *buffer_size)
 {
-    size_t initial_size, total_received;
-    ssize_t received;
+    uint32_t initial_size, total_received;
+    uint32_t received;
 
     initial_size = *buffer_size;
     total_received = 0;
@@ -103,22 +103,22 @@ long recvall_dynamic(int sockfd, char **buffer, size_t *buffer_size)
                 perror("realloc");
                 return -1;
             }
-            printf("Buffer incrementado de %ld bytes a %ld bytes\n", *buffer_size, initial_size);
+            printf("Buffer incrementado de %d bytes a %d bytes\n", *buffer_size, initial_size);
             *buffer_size = initial_size;
         }
     }
 
     (*buffer)[total_received] = '\0'; // Null-terminate the string
-    printf("Total recibido: %ld bytes\n", total_received);
+    printf("Total recibido: %d bytes\n", total_received);
     return total_received;
 }
 
 // recvall_dynamic and also prevents deadlocks
-long recvall_dynamic_timeout(int sockfd, char **buffer, size_t *buffer_size)
+long recvall_dynamic_timeout(int sockfd, char **buffer, uint32_t *buffer_size)
 {
     int flags, timeout;
-    size_t initial_size, total_received;
-    ssize_t received;
+    uint32_t initial_size, total_received;
+    uint32_t received;
 
     timeout = 1;
     initial_size = *buffer_size;
@@ -196,13 +196,13 @@ long recvall_dynamic_timeout(int sockfd, char **buffer, size_t *buffer_size)
                 perror("realloc");
                 exit(EXIT_FAILURE);
             }
-            printf("Buffer incrementado de %ld bytes a %ld bytes\n", *buffer_size, initial_size);
+            printf("Buffer incrementado de %d bytes a %d bytes\n", *buffer_size, initial_size);
             *buffer_size = initial_size;
         }
     }
 
     (*buffer)[total_received] = '\0'; // Null-terminate the string
-    printf("Total recibido: %ld bytes\n", total_received);
+    printf("Total recibido: %d bytes\n", total_received);
 
     // Set socket back to blocking mode
     if (fcntl(sockfd, F_SETFL, flags) == -1)
@@ -214,12 +214,12 @@ long recvall_dynamic_timeout(int sockfd, char **buffer, size_t *buffer_size)
     return total_received;
 }
 
-long sendall(int sockfd, const char *buffer, size_t length)
+long sendall(int sockfd, const char *buffer, uint32_t length)
 {
-    size_t total_sent = 0;
+    uint32_t total_sent = 0;
     while (total_sent < length)
     {
-        ssize_t sent = send(sockfd, buffer + total_sent, length - total_sent, 0);
+        uint32_t sent = send(sockfd, buffer + total_sent, length - total_sent, 0);
         if (sent == -1)
         {
             puts("Error al querer enviar datos");
@@ -228,7 +228,7 @@ long sendall(int sockfd, const char *buffer, size_t length)
         }
         total_sent += sent;
     }
-    printf("Total enviado: %ld bytes\n", total_sent);
+    printf("Total enviado: %d bytes\n", total_sent);
     return total_sent;
 }
 
@@ -289,43 +289,45 @@ int send_simple_packet(int sockfd, Simple_Packet *packet)
         return -1;
     }
 
+    printf("data: %s\n", packet->data);
+    printf("length: %d\n", packet->length);
+
     free(buffer);
     return 0; // Success
 }
 
 int recv_simple_packet(int sockfd, Simple_Packet **packet)
 {
-    uint32_t length;
     char *buffer;
 
     malloc_string(&buffer, sizeof(uint32_t) + 1);
 
     // Receive the length first
-    if (recvall(sockfd, buffer, sizeof(uint32_t) + 1) <= 0)
+    if (recvall_dynamic_timeout(sockfd, &buffer, (uint32_t *)(sizeof(uint32_t) + 1)) <= 0)
     {
         return -1;
     }
-    length = unpack_int(buffer);
 
     // Create packet
     if (create_simple_packet(packet, "") != 0)
     {
         return -1;
     }
-    (*packet)->length = length;
+    (*packet)->length = unpack_int(buffer);
 
     // Allocate memory for the data
-    if (malloc_string(&((*packet)->data), length) != 0)
+    if (malloc_string(&((*packet)->data), (*packet)->length) != 0)
     {
         free_simple_packet(*packet);
         return -1;
     }
 
-    if (recvall(sockfd, (*packet)->data, length) <= 0)
+    if (recvall_dynamic_timeout(sockfd, &((*packet)->data), &((*packet)->length)) <= 0)
     {
         return -1;
     }
-
+    printf("data: %s\n", (*packet)->data);
+    printf("length: %d\n", (*packet)->length);
     free(buffer);
     return 0; // Success
 }
