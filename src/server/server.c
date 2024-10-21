@@ -44,25 +44,61 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
+void handle_client(int client_sockfd)
+{
+    char *data, *msg;
+    int msglen;                               // new connection on new_fd
+    size_t buffer_size = DEFAULT_BUFFER_SIZE; // Define the initial buffer size
+
+    msg = initialize_string(DEFAULT_BUFFER_SIZE);
+
+    // char buffer[1024] = {0};
+    // recv(client_socket, buffer, 1024, 0);
+    // printf("Received from client: %s\n", buffer);
+    // send(client_socket, "Acknowledged", strlen("Acknowledged"), 0);
+    // close(client_socket);
+
+    // send initial server message
+    strcpy(msg, "Hola, soy el server");
+    msglen = strlen(msg);
+    if (sendall(client_sockfd, msg, msglen) > 0)
+    {
+        printf("server: mensaje enviado: \"%s\"\n", msg);
+    }
+    // receive initial message from client
+    recvall(client_sockfd, &data, &buffer_size);
+    if (recvall(client_sockfd, &data, &buffer_size) > 0)
+    {
+        printf("server: mensaje recibido: \"%s\"\n", data);
+    }
+    // send PONG message
+    if (strstr(data, "PING") != NULL)
+    {
+        puts("server: the message contains 'PING'\n");
+        strcpy(msg, "PONG");
+        msglen = strlen(msg);
+        if (sendall(client_sockfd, msg, msglen) > 0)
+        {
+            printf("server: mensaje enviado: \"%s\"\n", msg);
+        }
+    }
+    close(client_sockfd);
+    free(msg);
+}
+
 void handle_connections(int sockfd)
 {
     struct sockaddr their_addr; // connector's address information
     socklen_t sin_size;
     char their_ipstr[INET_ADDRSTRLEN];
-    char *msg;
-    int msglen, their_port;
+    int their_port;
     int new_fd; // new connection on new_fd
-
-    msg = initialize_string(INET_ADDRSTRLEN);
-    strcpy(msg, "Hola, soy el server");
-    msglen = strlen(msg);
 
     // Main accept() loop
     while (1)
     {
         sin_size = sizeof their_addr;
-        new_fd = accept(sockfd, &their_addr, &sin_size);
-        if (new_fd == -1)
+        if ((new_fd = accept(sockfd, &their_addr, &sin_size)) == -1)
         {
             perror("server: accept");
             continue;
@@ -80,15 +116,15 @@ void handle_connections(int sockfd)
             // This is the child process
             // Child doesn't need the listener (sockfd)
             close(sockfd);
-            sendall(new_fd, msg, msglen);
-            close(new_fd);
+            handle_client(new_fd);
             exit(EXIT_SUCCESS);
         }
-        // Parent doesn't need new_fd
-        close(new_fd);
+        else
+        {
+            // Parent doesn't need new_fd
+            close(new_fd);
+        }
     }
-
-    free(msg);
 }
 
 void parse_arguments(int argc, char *argv[], char **port_number, char **ip_number)

@@ -31,7 +31,7 @@ char *initialize_string(size_t size)
     return p;
 }
 
-void recvall(int socket, char **buffer, size_t *buffer_size)
+int recvall(int socket, char **buffer, size_t *buffer_size)
 {
     size_t total_received = 0;
     ssize_t received;
@@ -71,9 +71,10 @@ void recvall(int socket, char **buffer, size_t *buffer_size)
 
     (*buffer)[total_received] = '\0'; // Null-terminate the string
     printf("total recibido: %ld bytes\n", total_received);
+    return total_received;
 }
 
-void sendall(int socket, const char *buffer, size_t length)
+int sendall(int socket, const char *buffer, size_t length)
 {
     size_t total_sent = 0;
     while (total_sent < length)
@@ -87,6 +88,7 @@ void sendall(int socket, const char *buffer, size_t length)
         total_sent += sent;
     }
     printf("total enviado: %ld bytes\n", total_sent);
+    return total_sent;
 }
 
 // ONLY USE IF USING FORK()

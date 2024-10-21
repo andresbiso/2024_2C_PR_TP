@@ -16,6 +16,7 @@
 #define VERSION "0.0.1"
 
 // Function prototypes
+void handle_client(int client_sockfd);
 void handle_connections(int sockfd);
 void parse_arguments(int argc, char *argv[], char **port_number, char **ip_number);
 int setup_server(char *port_number, char *ip_number);
