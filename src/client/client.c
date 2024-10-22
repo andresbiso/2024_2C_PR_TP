@@ -52,14 +52,10 @@ int main(int argc, char *argv[])
 
 void handle_connection(int server_sockfd)
 {
-    char *data, *message; // new connection on new_fd
+    char *message; // new connection on new_fd
     Simple_Packet *send_packet, *recv_packet;
 
     if (malloc_string(&message, DEFAULT_BUFFER_SIZE) != 0)
-    {
-        exit(EXIT_FAILURE);
-    }
-    if (malloc_string(&data, DEFAULT_BUFFER_SIZE) != 0)
     {
         exit(EXIT_FAILURE);
     }
@@ -70,7 +66,6 @@ void handle_connection(int server_sockfd)
         fprintf(stderr, "Error al recibir packet\n");
         free_simple_packet(recv_packet);
         free(message);
-        free(data);
         exit(EXIT_FAILURE);
     }
     printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
@@ -82,7 +77,6 @@ void handle_connection(int server_sockfd)
     {
         fprintf(stderr, "Error al crear packet\n");
         free(message);
-        free(data);
         exit(EXIT_FAILURE);
     }
     if (send_simple_packet(server_sockfd, send_packet) < 0)
@@ -90,26 +84,22 @@ void handle_connection(int server_sockfd)
         fprintf(stderr, "Error al enviar packet\n");
         free_simple_packet(send_packet);
         free(message);
-        free(data);
         exit(EXIT_FAILURE);
     }
     printf("client: mensaje enviado: \"%s\"\n", send_packet->data);
     free_simple_packet(send_packet);
-    memset(data, 0, DEFAULT_BUFFER_SIZE);
     // receive responmse message from server
     if (recv_simple_packet(server_sockfd, &recv_packet) < 0)
     {
         fprintf(stderr, "Error al recibir packet\n");
         free_simple_packet(recv_packet);
         free(message);
-        free(data);
         exit(EXIT_FAILURE);
     }
     printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
     free_simple_packet(recv_packet);
     close(server_sockfd);
 
-    free(data);
     free(message);
 }
 

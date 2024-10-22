@@ -52,14 +52,10 @@ int main(int argc, char *argv[])
 
 void handle_client(int client_sockfd)
 {
-    char *data, *message; // new connection on new_fd
+    char *message; // new connection on new_fd
     Simple_Packet *send_packet, *recv_packet;
 
     if (malloc_string(&message, DEFAULT_BUFFER_SIZE) != 0)
-    {
-        exit(EXIT_FAILURE);
-    }
-    if (malloc_string(&data, DEFAULT_BUFFER_SIZE) != 0)
     {
         exit(EXIT_FAILURE);
     }
@@ -70,7 +66,6 @@ void handle_client(int client_sockfd)
     {
         fprintf(stderr, "Error al crear packet\n");
         free(message);
-        free(data);
         exit(EXIT_FAILURE);
     }
     if (send_simple_packet(client_sockfd, send_packet) < 0)
@@ -78,7 +73,6 @@ void handle_client(int client_sockfd)
         fprintf(stderr, "Error al enviar packet\n");
         free_simple_packet(send_packet);
         free(message);
-        free(data);
         exit(EXIT_FAILURE);
     }
     printf("server: mensaje enviado: \"%s\"\n", send_packet->data);
@@ -89,21 +83,19 @@ void handle_client(int client_sockfd)
         fprintf(stderr, "Error al recibir packet\n");
         free_simple_packet(recv_packet);
         free(message);
-        free(data);
         exit(EXIT_FAILURE);
     }
     printf("server: mensaje recibido: \"%s\"\n", recv_packet->data);
-    free_simple_packet(recv_packet);
     // send PONG message
-    if (strstr(data, "PING") != NULL)
+    if (strstr(recv_packet->data, "PING") != NULL)
     {
+        free_simple_packet(recv_packet);
         puts("server: el mensaje contiene \"PING\"");
         strcpy(message, "PONG");
         if (create_simple_packet(&send_packet, message) < 0)
         {
             fprintf(stderr, "Error al crear packet\n");
             free(message);
-            free(data);
             exit(EXIT_FAILURE);
         }
         if (send_simple_packet(client_sockfd, send_packet) < 0)
@@ -111,15 +103,13 @@ void handle_client(int client_sockfd)
             fprintf(stderr, "Error al enviar packet\n");
             free_simple_packet(send_packet);
             free(message);
-            free(data);
             exit(EXIT_FAILURE);
         }
-        printf("server: mensaje enviado: \"%s\"\n", recv_packet->data);
+        printf("server: mensaje enviado: \"%s\"\n", send_packet->data);
         free_simple_packet(send_packet);
     }
     close(client_sockfd);
 
-    free(data);
     free(message);
 }
 
