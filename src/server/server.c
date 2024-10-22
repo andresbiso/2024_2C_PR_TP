@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 
 void handle_client(int client_sockfd)
 {
-    char *message; // new connection on new_fd
+    char *message;
     Simple_Packet *send_packet, *recv_packet;
 
     if (malloc_string(&message, DEFAULT_BUFFER_SIZE) != 0)
