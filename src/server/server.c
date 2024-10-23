@@ -131,6 +131,83 @@ void *handle_client(void *arg)
     return NULL;
 }
 
+// Comment: make sure that the functions used by both handlers return some of the values mentioned
+// either that or adjust to the values I actually return.
+
+// void *handle_client_read(void *arg)
+// {
+//     ClientData *client_data = (ClientData *)arg;
+//     int client_sockfd = client_data->client_sockfd;
+//     char message[DEFAULT_BUFFER_SIZE];
+//     Simple_Packet *recv_packet;
+//     int nbytes;
+
+//     // receive initial message from client
+//     if ((nbytes = recv_simple_packet(client_sockfd, &recv_packet)) <= 0)
+//     {
+//         if (nbytes == 0)
+//         {
+//             // Connection closed by client
+//             printf("server: socket %d closed by client\n", client_sockfd);
+//         }
+//         else
+//         {
+//             perror("recv");
+//         }
+//         close(client_sockfd);
+//         client_data->client_sockfd = -1; // Signal to handle_connections
+//         free_simple_packet(recv_packet);
+//         return NULL;
+//     }
+//     printf("server: mensaje recibido: \"%s\"\n", recv_packet->data);
+//     // PONG message handling
+//     if (strstr(recv_packet->data, "PING") != NULL)
+//     {
+//         printf("server: el mensaje contiene \"PING\"\n");
+//         strcpy(message, "PONG");
+//         send_response(client_sockfd, message);
+//     }
+//     free_simple_packet(recv_packet);
+//     return NULL;
+// }
+
+// void *handle_client_write(void *arg)
+// {
+//     ClientData *client_data = (ClientData *)arg;
+//     int client_sockfd = client_data->client_sockfd;
+//     char message[DEFAULT_BUFFER_SIZE];
+//     Simple_Packet *send_packet;
+//     ssize_t nbytes;
+
+//     // send initial server message
+//     strcpy(message, "Hola, soy el server");
+//     if (create_simple_packet(&send_packet, message) < 0)
+//     {
+//         fprintf(stderr, "Error al crear packet\n");
+//         return NULL;
+//     }
+//     nbytes = send_simple_packet(client_sockfd, send_packet);
+//     if (nbytes < 0)
+//     {
+//         if (errno == EPIPE || errno == ECONNRESET)
+//         {
+//             // Connection closed by client
+//             printf("server: socket %d closed by client during send\n", client_sockfd);
+//             close(client_sockfd);
+//             client_data->client_sockfd = -1; // Signal to handle_connections
+//         }
+//         else
+//         {
+//             perror("send");
+//         }
+//         free_simple_packet(send_packet);
+//         return NULL;
+//     }
+//     printf("server: mensaje enviado: \"%s\"\n", send_packet->data);
+//     free_simple_packet(send_packet);
+//     return NULL;
+// }
+
 void handle_connections(int sockfd)
 {
     char their_ipstr[INET_ADDRSTRLEN];
@@ -186,6 +263,141 @@ void handle_connections(int sockfd)
         pthread_attr_destroy(&attr);
     }
 }
+
+// void handle_connections(int sockfd)
+// {
+//     char their_ipstr[INET_ADDRSTRLEN];
+//     int their_port, new_fd, i, rv;
+//     struct sockaddr their_addr;
+//     socklen_t sin_size;
+//     ClientData *client_data;
+//     pthread_t thread;
+//     pthread_attr_t attr;
+//     fd_set master, read_fds, write_fds, except_fds;
+//     int fdmax;
+
+//     FD_ZERO(&master);
+//     FD_ZERO(&read_fds);
+//     FD_ZERO(&write_fds);
+//     FD_ZERO(&except_fds);
+//     FD_SET(sockfd, &master);
+//     fdmax = sockfd;
+
+//     // Inicializar atributos del hilo
+//     pthread_attr_init(&attr);
+//     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+//     while (1)
+//     {
+//         read_fds = master;
+//         write_fds = master;
+//         except_fds = master;
+
+//         if ((rv = select(fdmax + 1, &read_fds, &write_fds, &except_fds, NULL)) == -1)
+//         {
+//             perror("select");
+//             exit(EXIT_FAILURE);
+//         }
+
+//         for (i = 0; i <= fdmax; i++)
+//         {
+//             if (FD_ISSET(i, &read_fds))
+//             {
+//                 if (i == sockfd)
+//                 {
+//                     sin_size = sizeof(their_addr);
+//                     if ((new_fd = accept(sockfd, &their_addr, &sin_size)) == -1)
+//                     {
+//                         perror("accept");
+//                     }
+//                     else
+//                     {
+//                         FD_SET(new_fd, &master);
+//                         if (new_fd > fdmax)
+//                         {
+//                             fdmax = new_fd;
+//                         }
+//                         inet_ntop(their_addr.sa_family,
+//                                   &(((struct sockaddr_in *)&their_addr)->sin_addr),
+//                                   their_ipstr, sizeof their_ipstr);
+//                         their_port = ((struct sockaddr_in *)&their_addr)->sin_port;
+//                         printf("server: obtained connection from %s:%d\n", their_ipstr, their_port);
+//                     }
+//                 }
+//                 else
+//                 {
+//                     if ((client_data = (ClientData *)malloc(sizeof(ClientData))) == NULL)
+//                     {
+//                         perror("malloc");
+//                         close(i);
+//                         FD_CLR(i, &master);
+//                         continue;
+//                     }
+//                     client_data->client_sockfd = i;
+//                     inet_ntop(their_addr.sa_family,
+//                               &(((struct sockaddr_in *)&their_addr)->sin_addr),
+//                               client_data->client_ipstr,
+//                               sizeof(client_data->client_ipstr));
+//                     client_data->client_port = their_port;
+
+//                     if (pthread_create(&thread, &attr, handle_client_read, (void *)client_data) != 0)
+//                     {
+//                         perror("pthread_create");
+//                         close(i);
+//                         FD_CLR(i, &master);
+//                         free(client_data);
+//                     }
+
+//                     // Check if socket needs to be removed (closed by client)
+//                     if (client_data->client_sockfd == -1)
+//                     {
+//                         FD_CLR(i, &master);
+//                     }
+//                 }
+//             }
+//             else if (FD_ISSET(i, &write_fds))
+//             {
+//                 if ((client_data = (ClientData *)malloc(sizeof(ClientData))) == NULL)
+//                 {
+//                     perror("malloc");
+//                     close(i);
+//                     FD_CLR(i, &master);
+//                     continue;
+//                 }
+//                 client_data->client_sockfd = i;
+//                 inet_ntop(their_addr.sa_family,
+//                           &(((struct sockaddr_in *)&their_addr)->sin_addr),
+//                           client_data->client_ipstr,
+//                           sizeof(client_data->client_ipstr));
+//                 client_data->client_port = their_port;
+
+//                 if (pthread_create(&thread, &attr, handle_client_write, (void *)client_data) != 0)
+//                 {
+//                     perror("pthread_create");
+//                     close(i);
+//                     FD_CLR(i, &master);
+//                     free(client_data);
+//                 }
+
+//                 // Check if socket needs to be removed (closed by client)
+//                 if (client_data->client_sockfd == -1)
+//                 {
+//                     FD_CLR(i, &master);
+//                 }
+//             }
+//             else if (FD_ISSET(i, &except_fds))
+//             {
+//                 // handle exceptions on the socket
+//                 perror("exception on socket");
+//                 close(i);
+//                 FD_CLR(i, &master);
+//             }
+//         }
+//     }
+
+//     // Destruir atributos del hilo
+//     pthread_attr_destroy(&attr);
+// }
 
 void parse_arguments(int argc, char *argv[], char **port_number, char **ip_number)
 {
