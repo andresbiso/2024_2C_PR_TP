@@ -41,6 +41,7 @@
     "type_traits": "c",
     "utility": "c",
     "__locale": "c",
-    "stdarg.h": "c"
+    "stdarg.h": "c",
+    "pthread.h": "c"
   }
 }

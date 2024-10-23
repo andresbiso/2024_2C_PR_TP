@@ -1,5 +1,6 @@
 // Standard library headers
 #include <errno.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -50,15 +51,26 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-void handle_client(int client_sockfd)
+void *handle_client(void *arg)
 {
-    char *message;
+    char *message, *client_ipstr;
+    int client_port, client_sockfd;
     Simple_Packet *send_packet, *recv_packet;
+    ClientData *client_data;
 
     if (malloc_string(&message, DEFAULT_BUFFER_SIZE) != 0)
     {
         exit(EXIT_FAILURE);
     }
+
+    client_data = (ClientData *)arg;
+    client_sockfd = client_data->client_sockfd;
+    client_ipstr = client_data->client_ipstr;
+    client_port = client_data->client_port;
+
+    printf("Thread cliente (%s:%d): comienzo\n", client_ipstr, client_port);
+
+    simulate_work();
 
     // send initial server message
     strcpy(message, "Hola, soy el server");
@@ -108,23 +120,32 @@ void handle_client(int client_sockfd)
         printf("server: mensaje enviado: \"%s\"\n", send_packet->data);
         free_simple_packet(send_packet);
     }
-    close(client_sockfd);
 
+    // Print completion message
+    printf("Thread cliente (%s:%d): finalizado\n", client_ipstr, client_port);
+
+    close(client_sockfd);
+    free(client_data);
     free(message);
+
+    return NULL;
 }
 
 void handle_connections(int sockfd)
 {
+    char their_ipstr[INET_ADDRSTRLEN];
+    int their_port, new_fd;
+    pthread_t thread;
+    pthread_attr_t attr;
     struct sockaddr their_addr; // connector's address information
     socklen_t sin_size;
-    char their_ipstr[INET_ADDRSTRLEN];
-    int their_port;
-    int new_fd; // new connection on new_fd
+    ClientData *client_data;
 
     // Main accept() loop
     while (1)
     {
-        sin_size = sizeof their_addr;
+        sin_size = sizeof(their_addr);
+        // new connection on new_fd
         if ((new_fd = accept(sockfd, &their_addr, &sin_size)) == -1)
         {
             perror("server: accept");
@@ -138,19 +159,31 @@ void handle_connections(int sockfd)
         their_port = ((struct sockaddr_in *)&their_addr)->sin_port;
         printf("server: obtuvo conexión de %s:%d\n", their_ipstr, their_port);
 
-        if (fork() == 0)
+        if ((client_data = (ClientData *)malloc(sizeof(ClientData))) == NULL)
         {
-            // This is the child process
-            // Child doesn't need the listener (sockfd)
-            close(sockfd);
-            handle_client(new_fd);
-            exit(EXIT_SUCCESS);
-        }
-        else
-        {
-            // Parent doesn't need new_fd
+            perror("malloc");
             close(new_fd);
+            exit(EXIT_FAILURE);
         }
+
+        memset(client_data->client_ipstr, 0, sizeof(client_data->client_ipstr));
+        client_data->client_sockfd = new_fd;
+        strcpy(client_data->client_ipstr, their_ipstr);
+        client_data->client_port = their_port;
+
+        pthread_attr_init(&attr);
+        // detached: the system will automatically clean up the resources of the thread when it terminates.
+        // no need to call pthread_join to clean up and retrieve the thread’s exit status.
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+        if (pthread_create(&thread, &attr, handle_client, client_data) != 0)
+        {
+            perror("pthread_create");
+            close(new_fd);
+            free(client_data);
+        }
+
+        pthread_attr_destroy(&attr);
     }
 }
 
@@ -216,7 +249,7 @@ int setup_server(char *port_number, char *ip_number)
         my_addr = &(ipv4->sin_addr);
 
         // Convert the IP to a string and print it
-        inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof my_ipstr);
+        inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof(my_ipstr));
         printf("->  IPv4: %s\n", my_ipstr);
     }
 
@@ -266,7 +299,7 @@ int setup_server(char *port_number, char *ip_number)
     // Show listening ip and port
     ipv4 = (struct sockaddr_in *)p->ai_addr;
     my_addr = &(ipv4->sin_addr);
-    inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof my_ipstr);
+    inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof(my_ipstr));
 
     printf("server: %s:%s\n", my_ipstr, port_number);
     puts("server: esperando conexiones...");

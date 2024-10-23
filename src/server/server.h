@@ -15,8 +15,15 @@
 #define PORTSTRLEN 6           // Enough to hold "65535" + '\0'
 #define VERSION "0.0.1"
 
+typedef struct
+{
+    int client_sockfd;
+    char client_ipstr[INET_ADDRSTRLEN];
+    int client_port;
+} ClientData;
+
 // Function prototypes
-void handle_client(int client_sockfd);
+void *handle_client(void *arg);
 void handle_connections(int sockfd);
 void parse_arguments(int argc, char *argv[], char **port_number, char **ip_number);
 int setup_server(char *port_number, char *ip_number);

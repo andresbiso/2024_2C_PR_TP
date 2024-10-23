@@ -25,5 +25,6 @@ int send_simple_packet(int sockfd, Simple_Packet *packet);
 int recv_simple_packet(int sockfd, Simple_Packet **packet);
 int setup_signal_handler(void);
 void sigchld_handler(int s);
+void simulate_work();
 
 #endif // COMMON_H

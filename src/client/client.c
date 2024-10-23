@@ -149,7 +149,7 @@ int setup_client(char *port_number, char *ip_number)
     socklen_t local_addr_len;
 
     // Setup addinfo
-    memset(&hints, 0, sizeof hints);
+    memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET; // AF_INET to force version IPv4
     hints.ai_socktype = SOCK_STREAM;
 
@@ -166,7 +166,7 @@ int setup_client(char *port_number, char *ip_number)
         their_addr = &(ipv4->sin_addr);
 
         // Convert the IP to a string and print it:
-        inet_ntop(p->ai_family, their_addr, their_ipstr, sizeof their_ipstr);
+        inet_ntop(p->ai_family, their_addr, their_ipstr, sizeof(their_ipstr));
         printf("->  IPv4: %s\n", their_ipstr);
     }
 
@@ -202,7 +202,7 @@ int setup_client(char *port_number, char *ip_number)
     // Show server ip and port
     ipv4 = (struct sockaddr_in *)p->ai_addr;
     their_addr = &(ipv4->sin_addr);
-    inet_ntop(p->ai_family, their_addr, their_ipstr, sizeof their_ipstr);
+    inet_ntop(p->ai_family, their_addr, their_ipstr, sizeof(their_ipstr));
 
     printf("client: conectado a %s:%s\n", their_ipstr, port_number);
 

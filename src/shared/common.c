@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 // Networking headers
@@ -376,4 +377,13 @@ void sigchld_handler(int s)
         ;
 
     errno = saved_errno;
+}
+
+void simulate_work()
+{
+    // Simulate work by sleeping
+    struct timespec delay;
+    delay.tv_sec = 2; // 2 seconds
+    delay.tv_nsec = 0;
+    nanosleep(&delay, NULL);
 }
