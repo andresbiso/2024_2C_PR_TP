@@ -40,6 +40,13 @@ int malloc_string(char **s, int32_t size)
 }
 
 // use this function when you know the size the data
+
+/* recvall:
+ * Continuously receive data until the entire buffer is filled or the connection is closed.
+ * We keep track of the total received data, and adjust the buffer pointer to avoid overwriting existing data.
+ * `bytesleft` tracks how much of the buffer is yet to be filled, although `recv` manages the data reception amount.
+ */
+
 long recvall(int sockfd, char *buffer, int32_t buffer_size)
 {
     int32_t bytesleft, received, total_received;
@@ -217,6 +224,13 @@ long recvall_dynamic_timeout(int sockfd, char **buffer, int32_t *buffer_size)
     }
     return total_received;
 }
+
+/* sendall:
+ * Continuously send data until the entire buffer is transmitted.
+ * This ensures partial sends are handled by tracking how much data is left to send.
+ * We adjust the buffer pointer to the correct offset to avoid resending the same data.
+ * The expression `length - total_sent` calculates the remaining amount of data to be sent.
+ */
 
 long sendall(int sockfd, const char *buffer, int32_t length)
 {
