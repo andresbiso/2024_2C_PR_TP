@@ -1,4 +1,6 @@
-// https://github.com/beejjorgensen/bgnet/blob/main/source/examples/pack2.c
+// Beej guide provided functions to pack() and unpack() values.
+// The pack and unpack functions help convert between host and network byte orders, ensuring data integrity across different platforms.
+// Link: https://github.com/beejjorgensen/bgnet/blob/main/source/examples/pack2.c
 
 // Standard library headers
 #include <stdio.h>
@@ -254,6 +256,7 @@ unsigned long long int unpacku64(unsigned char *buf)
 // The values added to the buffer are in hexadecimal, can't be printed as strings.
 unsigned int pack(unsigned char *buf, char *format, ...)
 {
+    // we use va_list because we have a variable number of arguments to pack (...)
     va_list ap;
 
     signed char c; // 8-bit
@@ -395,6 +398,7 @@ unsigned int pack(unsigned char *buf, char *format, ...)
 */
 void unpack(unsigned char *buf, char *format, ...)
 {
+    // we use va_list because we have a variable number of arguments to unpack (...)
     va_list ap;
 
     signed char *c; // 8-bit

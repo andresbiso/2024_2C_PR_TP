@@ -22,8 +22,8 @@ char *allocate_string(const char *source)
     char *str;
     size_t len;
 
-    size_t len = strlen(source) + 1; // +1 for the null terminator
-    *str = (char *)malloc(len);
+    len = strlen(source) + 1; // +1 for the null terminator
+    str = (char *)malloc(len);
     if (str == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
@@ -31,6 +31,22 @@ char *allocate_string(const char *source)
     }
     memset(str, 0, len); // Initialize allocated memory to zero
     strcpy(str, source);
+    return str;
+}
+
+char *allocate_string_with_length(size_t length)
+{
+    char *str;
+    size_t len;
+
+    len = length + 1; // +1 for the null terminator
+    str = (char *)malloc(len);
+    if (str == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        return NULL;
+    }
+    memset(str, 0, len); // Initialize allocated memory to zero
     return str;
 }
 
@@ -130,6 +146,24 @@ int create_simple_packet(Simple_Packet **packet, const char *data)
     return 0; // Success
 }
 
+int create_packet_with_length(Simple_Packet **packet, int32_t length)
+{
+    *packet = (Simple_Packet *)malloc(sizeof(Simple_Packet));
+    if (*packet == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        return -1; // Memory allocation failed
+    }
+    (*packet)->length = length;
+    if (((*packet)->data = allocate_string_with_length(length)) == NULL)
+    {
+        free(*packet); // Free the struct if string allocation fails
+        return -1;
+    }
+
+    return 0; // Success
+}
+
 int free_simple_packet(Simple_Packet *packet)
 {
     if (packet == NULL)
@@ -147,126 +181,87 @@ int free_simple_packet(Simple_Packet *packet)
 ssize_t send_simple_packet(int sockfd, Simple_Packet *packet)
 {
     char *buffer;
-    unsigned char *ubuffer;
-    ssize_t sent_bytes, total_sentbytes;
+    unsigned char net_length[sizeof(int32_t)];
+    int packet_size;
+    ssize_t sent_bytes;
 
-    total_sentbytes = 0;
-
-    // Allocate memory for the length
-    buffer = (char *)malloc(sizeof(int32_t));
+    packet_size = sizeof(int32_t) + packet->length; // sizeof(length) + data length
+    buffer = allocate_string_with_length(packet_size);
     if (buffer == NULL)
     {
-        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
         return -1;
     }
 
-    // Allocate memory for packing the length
-    ubuffer = (unsigned char *)malloc(sizeof(int32_t));
-    if (ubuffer == NULL)
-    {
-        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
-        free(buffer);
-        return -1;
-    }
+    // Pack the length into network byte order using pack()
+    pack(net_length, "l", packet->length);
+    memcpy(buffer, net_length, sizeof(int32_t));
+    memcpy(buffer + sizeof(int32_t), packet->data, packet->length);
 
-    if (pack(ubuffer, "l", packet->length) != sizeof(int32_t))
+    // Send the entire packet
+    if ((sent_bytes = sendall(sockfd, buffer, packet_size)) < 0)
     {
-        fprintf(stderr, "Error al pack() el tamaño de la data\n");
-        free(buffer);
-        free(ubuffer);
-        return -1;
-    }
-
-    printf("Packet size: %d bytes\n", packet->length);
-    memcpy(buffer, ubuffer, sizeof(int32_t));
-
-    // Send the length first
-    if ((sent_bytes = sendall(sockfd, buffer, sizeof(int32_t))) < 0)
-    {
-        free(buffer);
-        free(ubuffer);
         return sent_bytes;
     }
-    total_sentbytes += sent_bytes;
 
-    // Send the data
-    if ((sent_bytes = sendall(sockfd, packet->data, packet->length)) < 0)
+    if (sent_bytes != packet_size)
     {
-        free(buffer);
-        free(ubuffer);
-        return sent_bytes;
+        fprintf(stderr, "Error al enviar el packet\n");
+        return -1;
     }
-    total_sentbytes += sent_bytes;
 
     free(buffer);
-    free(ubuffer);
-    return total_sentbytes;
+    return sent_bytes;
 }
 
 ssize_t recv_simple_packet(int sockfd, Simple_Packet **packet)
 {
-    char *buffer;
-    unsigned char *ubuffer;
-    ssize_t recv_bytes, ret_value, total_recvbytes;
+    int32_t length;
+    unsigned char net_length[sizeof(int32_t)];
+    char length_buffer[sizeof(int32_t)];
+    ssize_t recv_bytes, total_recvbytes;
 
     total_recvbytes = 0;
 
-    buffer = (char *)malloc(sizeof(int32_t));
-    if (buffer == NULL)
-    {
-        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
-        return -1;
-    }
-
-    ubuffer = (unsigned char *)malloc(sizeof(int32_t));
-    if (ubuffer == NULL)
-    {
-        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
-        free(buffer);
-        return -1;
-    }
-
     // Receive the length first
-    if ((recv_bytes = recvall(sockfd, buffer, sizeof(int32_t))) <= 0)
+    if (recv_bytes = recvall(sockfd, length_buffer, sizeof(int32_t)) <= 0)
     {
-        free(buffer);
-        free(ubuffer);
         return recv_bytes;
     }
-    total_recvbytes += recv_bytes;
 
-    // Create packet
-    if ((ret_value = (ssize_t)create_simple_packet(packet, "")) < 0)
+    if (recv_bytes != sizeof(int32_t))
     {
-        free(buffer);
-        free(ubuffer);
-        return ret_value;
+        fprintf(stderr, "Error al recibir el length del packet\n");
+        return -1;
     }
+    total_recvbytes += recv_bytes;
+    memcpy(net_length, length_buffer, sizeof(int32_t));
 
-    memcpy(ubuffer, buffer, sizeof(int32_t));
-    unpack(ubuffer, "l", &((*packet)->length));
+    unpack(net_length, "l", &length); // Convert from network byte order to host byte order
 
-    // Allocate memory for the data
-    (*packet)->data = (char *)malloc((*packet)->length + 1); // +1 for the null terminator
-    if ((*packet)->data == NULL)
+    // Allocate and initialize the packet
+    *packet = create_packet_with_length(packet, length);
+    if (*packet == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
-        free(buffer);
-        free(ubuffer);
         return -1;
     }
 
-    if ((recv_bytes = recvall(sockfd, (*packet)->data, (*packet)->length)) <= 0)
+    // Receive the actual data
+    if (recv_bytes = recvall(sockfd, (*packet)->data, length) <= 0)
     {
-        free(buffer);
-        free(ubuffer);
         return recv_bytes;
+    }
+
+    if (recv_bytes != length)
+    {
+        fprintf(stderr, "Error al recibir el data del packet\n");
+        return -1;
     }
     total_recvbytes += recv_bytes;
 
-    free(buffer);
-    free(ubuffer);
-    return total_recvbytes;
+    (*packet)->data[length] = '\0'; // Null-terminate the string
+
+    return recv_bytes;
 }
 
 void simulate_work()
