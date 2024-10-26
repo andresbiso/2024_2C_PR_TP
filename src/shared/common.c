@@ -127,41 +127,60 @@ ssize_t sendall_with_flags(int sockfd, const void *buf, size_t len, int flags)
     return total_sent;
 }
 
-int create_simple_packet(Simple_Packet **packet, const char *data)
+Simple_Packet *create_simple_packet(const char *data)
 {
-    *packet = (Simple_Packet *)malloc(sizeof(Simple_Packet));
-    if (*packet == NULL)
+    Simple_Packet *packet;
+
+    if (data == NULL)
+    {
+        return NULL;
+    }
+
+    packet = (Simple_Packet *)malloc(sizeof(Simple_Packet));
+    if (packet == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
-        return -1; // Memory allocation failed
+        return NULL; // Memory allocation failed
     }
+    // Initialize allocated memory to zero
+    memset(packet, 0, sizeof(Simple_Packet));
 
-    (*packet)->length = strlen(data);
-    if (((*packet)->data = allocate_string(data)) == NULL)
+    packet->length = strlen(data);
+    if ((packet->data = allocate_string(data)) == NULL)
     {
-        free(*packet); // Free the struct if string allocation fails
-        return -1;
+        free(packet); // Free the struct if string allocation fails
+        return NULL;
     }
 
-    return 0; // Success
+    return packet;
 }
 
-int create_packet_with_length(Simple_Packet **packet, int32_t length)
+Simple_Packet *create_packet_with_length(int32_t length)
 {
-    *packet = (Simple_Packet *)malloc(sizeof(Simple_Packet));
-    if (*packet == NULL)
+    Simple_Packet *packet;
+
+    if (length <= 0)
+    {
+        return NULL;
+    }
+
+    packet = (Simple_Packet *)malloc(sizeof(Simple_Packet));
+    if (packet == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
-        return -1; // Memory allocation failed
+        return NULL; // Memory allocation failed
     }
-    (*packet)->length = length;
-    if (((*packet)->data = allocate_string_with_length(length)) == NULL)
+    // Initialize allocated memory to zero
+    memset(packet, 0, sizeof(Simple_Packet));
+
+    packet->length = length;
+    if ((packet->data = allocate_string_with_length(length)) == NULL)
     {
-        free(*packet); // Free the struct if string allocation fails
+        free(packet); // Free the struct if string allocation fails
         return -1;
     }
 
-    return 0; // Success
+    return packet;
 }
 
 int free_simple_packet(Simple_Packet *packet)
@@ -239,7 +258,7 @@ ssize_t recv_simple_packet(int sockfd, Simple_Packet **packet)
     unpack(net_length, "l", &length); // Convert from network byte order to host byte order
 
     // Allocate and initialize the packet
-    *packet = create_packet_with_length(packet, length);
+    *packet = create_packet_with_length(length);
     if (*packet == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));

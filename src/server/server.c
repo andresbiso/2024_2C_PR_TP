@@ -25,23 +25,14 @@
 
 int main(int argc, char *argv[])
 {
-    char *ip_number, *port_number;
+    char ip_number[INET_ADDRSTRLEN], port_number[PORTSTRLEN];
     int sockfd; // listen on sock_fd
 
-    if (malloc_string(&ip_number, INET_ADDRSTRLEN) != 0)
-    {
-        exit(EXIT_FAILURE);
-    }
-    if (malloc_string(&port_number, PORTSTRLEN) != 0)
-    {
-        exit(EXIT_FAILURE);
-    }
     strcpy(ip_number, DEFAULT_IP);
     strcpy(port_number, DEFAULT_PORT);
 
     parse_arguments(argc, argv, &port_number, &ip_number);
     sockfd = setup_server(port_number, ip_number);
-    setup_signal_handler();
     handle_connections(sockfd);
 
     // free allocated memory
@@ -51,12 +42,204 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
+void parse_arguments(int argc, char *argv[], char **port_number, char **ip_number)
+{
+    if (argc >= 2)
+    {
+        for (int i = 1; i < argc; i++)
+        {
+            if (strcmp(argv[i], "--help") == 0)
+            {
+                show_help();
+                exit(EXIT_SUCCESS);
+            }
+            else if (strcmp(argv[i], "--version") == 0)
+            {
+                show_version();
+                exit(EXIT_SUCCESS);
+            }
+            else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc)
+            {
+                strcpy(*port_number, argv[i + 1]);
+                i++; // Skip the next argument since it's the port number
+            }
+            else if (strcmp(argv[i], "--ip") == 0 && i + 1 < argc)
+            {
+                strcpy(*ip_number, argv[i + 1]);
+                i++; // Skip the next argument since it's the IP address
+            }
+            else
+            {
+                printf("server: Opción o argumento no soportado: %s\n", argv[i]);
+                show_help();
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+}
+
+void show_help()
+{
+    puts("Uso: server [opciones]");
+    puts("Opciones:");
+    puts("  --help      Muestra este mensaje de ayuda");
+    puts("  --version   Muestra version del programa");
+    puts("  --port <puerto> Especificar el número de puerto");
+    puts("  --ip <ip> Especificar el número de ip");
+}
+
+void show_version()
+{
+    printf("Server Version %s\n", VERSION);
+}
+
+int setup_server(char *port_number, char *ip_number)
+{
+    int returned_value, sockfd;
+    char my_ipstr[INET_ADDRSTRLEN];
+    struct addrinfo hints, *servinfo, *p;
+    struct sockaddr_in *ipv4;
+    socklen_t yes;
+    void *my_addr;
+
+    yes = 1;
+
+    // Setup addinfo
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET; // AF_INET to force version IPv4
+    hints.ai_socktype = SOCK_STREAM;
+
+    if ((returned_value = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
+    {
+        fprintf(stderr, "server: getaddrinfo: %s\n", gai_strerror(returned_value));
+        return 1;
+    }
+
+    puts("server: direcciones resueltas");
+    for (p = servinfo; p != NULL; p = p->ai_next)
+    {
+        ipv4 = (struct sockaddr_in *)p->ai_addr;
+        my_addr = &(ipv4->sin_addr);
+
+        // Convert the IP to a string and print it
+        inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof(my_ipstr));
+        printf("->  IPv4: %s\n", my_ipstr);
+    }
+
+    // Loop through all the results and bind to the first we can
+    for (p = servinfo; p != NULL; p = p->ai_next)
+    {
+        if ((sockfd = socket(p->ai_family, p->ai_socktype,
+                             p->ai_protocol)) == -1)
+        {
+            perror("server: socket");
+            continue;
+        }
+
+        // Ask the kernel to let me reuse the socket if already in use from previous run
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
+                       sizeof(int)) == -1)
+        {
+            perror("server: setsockopt");
+            exit(EXIT_FAILURE);
+        }
+
+        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
+        {
+            close(sockfd);
+            perror("server: bind");
+            continue;
+        }
+
+        break;
+    }
+
+    // Free addrinfo struct allocated memory
+    freeaddrinfo(servinfo);
+
+    if (p == NULL)
+    {
+        fprintf(stderr, "server: no pudo realizarse el bind\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (listen(sockfd, BACKLOG) == -1)
+    {
+        perror("server: listen");
+        exit(EXIT_FAILURE);
+    }
+
+    // Show listening ip and port
+    ipv4 = (struct sockaddr_in *)p->ai_addr;
+    my_addr = &(ipv4->sin_addr);
+    inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof(my_ipstr));
+
+    printf("server: %s:%s\n", my_ipstr, port_number);
+    puts("server: esperando conexiones...");
+
+    return sockfd;
+}
+
+void handle_connections(int sockfd)
+{
+    char their_ipstr[INET_ADDRSTRLEN];
+    int their_port, new_fd;
+    pthread_t thread;
+    pthread_attr_t attr;
+    struct sockaddr their_addr; // connector's address information
+    socklen_t sin_size;
+    Client_Data *client_data;
+
+    // Initialize thread attributes
+    pthread_attr_init(&attr);
+    // detached: the system will automatically clean up the resources of the thread when it terminates.
+    // no need to call pthread_join to clean up and retrieve the thread’s exit status.
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+    // Main accept() loop
+    while (1)
+    {
+        sin_size = sizeof(their_addr);
+        // new connection on new_fd
+        if ((new_fd = accept(sockfd, &their_addr, &sin_size)) == -1)
+        {
+            perror("server: accept");
+            break;
+        }
+
+        inet_ntop(their_addr.sa_family,
+                  &(((struct sockaddr_in *)&their_addr)->sin_addr),
+                  their_ipstr,
+                  sizeof(their_ipstr));
+        their_port = ((struct sockaddr_in *)&their_addr)->sin_port;
+        printf("server: obtuvo conexión de %s:%d\n", their_ipstr, their_port);
+
+        client_data = create_client_data(new_fd, their_ipstr, their_port);
+        if (client_data == NULL)
+        {
+            close(new_fd);
+            break;
+        }
+
+        if (pthread_create(&thread, &attr, handle_client, client_data) != 0)
+        {
+            perror("pthread_create");
+            free(client_data);
+            close(new_fd);
+            break;
+        }
+    }
+
+    // Cleanup after loop
+    pthread_attr_destroy(&attr);
+}
+
 void *handle_client(void *arg)
 {
     char *message, *client_ipstr;
     int client_port, client_sockfd;
     Simple_Packet *send_packet, *recv_packet;
-    ClientData *client_data;
+    Client_Data *client_data;
 
     if (malloc_string(&message, DEFAULT_BUFFER_SIZE) != 0)
     {
@@ -129,6 +312,31 @@ void *handle_client(void *arg)
     free(message);
 
     return NULL;
+}
+
+Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port)
+{
+    Client_Data *data;
+
+    if (sockfd <= 0 || ipstr == NULL || port <= 0)
+    {
+        return NULL;
+    }
+
+    data = (Client_Data *)malloc(sizeof(Client_Data));
+    if (data == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        return NULL; // Memory allocation failed
+    }
+    // Initialize allocated memory to zero
+    memset(data, 0, sizeof(Client_Data));
+
+    data->client_sockfd = sockfd;
+    strcpy(data->client_ipstr, ipstr);
+    data->client_port = port;
+
+    return data;
 }
 
 // Comment: make sure that the functions used by both handlers return some of the values mentioned
@@ -207,62 +415,6 @@ void *handle_client(void *arg)
 //     free_simple_packet(send_packet);
 //     return NULL;
 // }
-
-void handle_connections(int sockfd)
-{
-    char their_ipstr[INET_ADDRSTRLEN];
-    int their_port, new_fd;
-    pthread_t thread;
-    pthread_attr_t attr;
-    struct sockaddr their_addr; // connector's address information
-    socklen_t sin_size;
-    ClientData *client_data;
-
-    // Main accept() loop
-    while (1)
-    {
-        sin_size = sizeof(their_addr);
-        // new connection on new_fd
-        if ((new_fd = accept(sockfd, &their_addr, &sin_size)) == -1)
-        {
-            perror("server: accept");
-            continue;
-        }
-
-        inet_ntop(their_addr.sa_family,
-                  &(((struct sockaddr_in *)&their_addr)->sin_addr),
-                  their_ipstr,
-                  sizeof their_ipstr);
-        their_port = ((struct sockaddr_in *)&their_addr)->sin_port;
-        printf("server: obtuvo conexión de %s:%d\n", their_ipstr, their_port);
-
-        if ((client_data = (ClientData *)malloc(sizeof(ClientData))) == NULL)
-        {
-            perror("malloc");
-            close(new_fd);
-            exit(EXIT_FAILURE);
-        }
-
-        memset(client_data->client_ipstr, 0, sizeof(client_data->client_ipstr));
-        client_data->client_sockfd = new_fd;
-        strcpy(client_data->client_ipstr, their_ipstr);
-        client_data->client_port = their_port;
-
-        pthread_attr_init(&attr);
-        // detached: the system will automatically clean up the resources of the thread when it terminates.
-        // no need to call pthread_join to clean up and retrieve the thread’s exit status.
-        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-        if (pthread_create(&thread, &attr, handle_client, client_data) != 0)
-        {
-            perror("pthread_create");
-            close(new_fd);
-            free(client_data);
-        }
-
-        pthread_attr_destroy(&attr);
-    }
-}
 
 // void handle_connections(int sockfd)
 // {
@@ -398,138 +550,3 @@ void handle_connections(int sockfd)
 //     // Destruir atributos del hilo
 //     pthread_attr_destroy(&attr);
 // }
-
-void parse_arguments(int argc, char *argv[], char **port_number, char **ip_number)
-{
-    if (argc >= 2)
-    {
-        for (int i = 1; i < argc; i++)
-        {
-            if (strcmp(argv[i], "--help") == 0)
-            {
-                show_help();
-                exit(EXIT_SUCCESS);
-            }
-            else if (strcmp(argv[i], "--version") == 0)
-            {
-                show_version();
-                exit(EXIT_SUCCESS);
-            }
-            else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc)
-            {
-                strcpy(*port_number, argv[i + 1]);
-                i++; // Skip the next argument since it's the port number
-            }
-            else if (strcmp(argv[i], "--ip") == 0 && i + 1 < argc)
-            {
-                strcpy(*ip_number, argv[i + 1]);
-                i++; // Skip the next argument since it's the IP address
-            }
-            else
-            {
-                printf("server: Opción o argumento no soportado: %s\n", argv[i]);
-                show_help();
-                exit(EXIT_FAILURE);
-            }
-        }
-    }
-}
-
-int setup_server(char *port_number, char *ip_number)
-{
-    int returned_value, sockfd, yes = 1;
-    char my_ipstr[INET_ADDRSTRLEN];
-    struct addrinfo hints, *servinfo, *p;
-    struct sockaddr_in *ipv4;
-    void *my_addr;
-
-    // Setup addinfo
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET; // AF_INET to force version IPv4
-    hints.ai_socktype = SOCK_STREAM;
-
-    if ((returned_value = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
-    {
-        fprintf(stderr, "server: getaddrinfo: %s\n", gai_strerror(returned_value));
-        return 1;
-    }
-
-    puts("server: direcciones resueltas");
-    for (p = servinfo; p != NULL; p = p->ai_next)
-    {
-        ipv4 = (struct sockaddr_in *)p->ai_addr;
-        my_addr = &(ipv4->sin_addr);
-
-        // Convert the IP to a string and print it
-        inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof(my_ipstr));
-        printf("->  IPv4: %s\n", my_ipstr);
-    }
-
-    // Loop through all the results and bind to the first we can
-    for (p = servinfo; p != NULL; p = p->ai_next)
-    {
-        if ((sockfd = socket(p->ai_family, p->ai_socktype,
-                             p->ai_protocol)) == -1)
-        {
-            perror("server: socket");
-            continue;
-        }
-
-        // Ask the kernel to let me reuse the socket if already in use from previous run
-        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-                       sizeof(int)) == -1)
-        {
-            perror("server: setsockopt");
-            exit(EXIT_FAILURE);
-        }
-
-        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
-        {
-            close(sockfd);
-            perror("server: bind");
-            continue;
-        }
-
-        break;
-    }
-
-    // Free addrinfo struct allocated memory
-    freeaddrinfo(servinfo);
-
-    if (p == NULL)
-    {
-        fprintf(stderr, "server: no pudo realizarse el bind\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (listen(sockfd, BACKLOG) == -1)
-    {
-        perror("server: listen");
-        exit(EXIT_FAILURE);
-    }
-
-    // Show listening ip and port
-    ipv4 = (struct sockaddr_in *)p->ai_addr;
-    my_addr = &(ipv4->sin_addr);
-    inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof(my_ipstr));
-
-    printf("server: %s:%s\n", my_ipstr, port_number);
-    puts("server: esperando conexiones...");
-
-    return sockfd;
-}
-
-void show_help()
-{
-    puts("Uso: server [opciones]");
-    puts("Opciones:");
-    puts("  --help      Muestra este mensaje de ayuda");
-    puts("  --version   Muestra version del programa");
-    puts("  --port <puerto> Especificar el número de puerto");
-    puts("  --ip <ip> Especificar el número de ip");
-}
-
-void show_version()
-{
-    printf("Server Version %s\n", VERSION);
-}

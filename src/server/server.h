@@ -19,8 +19,8 @@ typedef struct
 {
     int client_sockfd;
     char client_ipstr[INET_ADDRSTRLEN];
-    int client_port;
-} ClientData;
+    in_port_t client_port;
+} Client_Data;
 
 // Function prototypes
 void *handle_client(void *arg);
@@ -29,5 +29,6 @@ void parse_arguments(int argc, char *argv[], char **port_number, char **ip_numbe
 int setup_server(char *port_number, char *ip_number);
 void show_help(void);
 void show_version(void);
+Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port);
 
 #endif // SERVER_H
