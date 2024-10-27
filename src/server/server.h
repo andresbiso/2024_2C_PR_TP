@@ -25,7 +25,7 @@ typedef struct
 // Function prototypes
 void *handle_client(void *arg);
 int handle_connections(int sockfd);
-int parse_arguments(int argc, char *argv[], char **port_number, char **ip_number);
+int parse_arguments(int argc, char *argv[], char *port_number, char *ip_number);
 int setup_server(char *port_number, char *ip_number);
 void show_help(void);
 void show_version(void);

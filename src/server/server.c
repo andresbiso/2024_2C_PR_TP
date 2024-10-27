@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
     strcpy(ip_number, DEFAULT_IP);
     strcpy(port_number, DEFAULT_PORT);
 
-    ret_val = parse_arguments(argc, argv, &port_number, &ip_number);
+    ret_val = parse_arguments(argc, argv, port_number, ip_number);
     if (ret_val > 0)
     {
         return EXIT_SUCCESS;
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-int parse_arguments(int argc, char *argv[], char **port_number, char **ip_number)
+int parse_arguments(int argc, char *argv[], char *port_number, char *ip_number)
 {
     int ret_val;
 
@@ -68,20 +68,22 @@ int parse_arguments(int argc, char *argv[], char **port_number, char **ip_number
             {
                 show_help();
                 ret_val = 1;
+                break;
             }
             else if (strcmp(argv[i], "--version") == 0)
             {
                 show_version();
                 ret_val = 1;
+                break;
             }
             else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc)
             {
-                strcpy(*port_number, argv[i + 1]);
+                strcpy(port_number, argv[i + 1]);
                 i++; // Skip the next argument since it's the port number
             }
             else if (strcmp(argv[i], "--ip") == 0 && i + 1 < argc)
             {
-                strcpy(*ip_number, argv[i + 1]);
+                strcpy(ip_number, argv[i + 1]);
                 i++; // Skip the next argument since it's the IP address
             }
             else
@@ -89,9 +91,11 @@ int parse_arguments(int argc, char *argv[], char **port_number, char **ip_number
                 printf("server: Opción o argumento no soportado: %s\n", argv[i]);
                 show_help();
                 ret_val = -1;
+                break;
             }
         }
     }
+    return ret_val;
 }
 
 void show_help()
@@ -115,8 +119,8 @@ int setup_server(char *port_number, char *ip_number)
     char my_ipstr[INET_ADDRSTRLEN];
     struct addrinfo hints, *servinfo, *p;
     struct sockaddr_in *ipv4;
+    struct in_addr *my_addr;
     socklen_t yes;
-    void *my_addr;
 
     yes = 1;
     sockfd = 0;
@@ -265,7 +269,7 @@ void *handle_client(void *arg)
 
     if (arg == NULL)
     {
-        return;
+        return NULL;
     }
 
     client_data = (Client_Data *)arg;
@@ -279,13 +283,13 @@ void *handle_client(void *arg)
     if ((send_packet = create_simple_packet(message)) == NULL)
     {
         fprintf(stderr, "Error al crear packet\n");
-        return;
+        return NULL;
     }
     if (send_simple_packet(client_data->client_sockfd, send_packet) < 0)
     {
         fprintf(stderr, "Error al enviar packet\n");
         free_simple_packet(send_packet);
-        return;
+        return NULL;
     }
     printf("server: mensaje enviado: \"%s\"\n", send_packet->data);
     free_simple_packet(send_packet);
@@ -295,13 +299,13 @@ void *handle_client(void *arg)
     {
         fprintf(stderr, "Conexión cerrada antes de recibir packet\n");
         free_simple_packet(recv_packet);
-        return;
+        return NULL;
     }
     else if (recv_val < 0)
     {
         fprintf(stderr, "Error al recibir packet\n");
         free_simple_packet(recv_packet);
-        return;
+        return NULL;
     }
     printf("server: mensaje recibido: \"%s\"\n", recv_packet->data);
     // send PONG message
@@ -313,13 +317,13 @@ void *handle_client(void *arg)
         if ((send_packet = create_simple_packet(message)) == NULL)
         {
             fprintf(stderr, "Error al crear packet\n");
-            return;
+            return NULL;
         }
         if (send_simple_packet(client_data->client_sockfd, send_packet) < 0)
         {
             fprintf(stderr, "Error al enviar packet\n");
             free_simple_packet(send_packet);
-            return;
+            return NULL;
         }
         printf("server: mensaje enviado: \"%s\"\n", send_packet->data);
         free_simple_packet(send_packet);
@@ -330,6 +334,7 @@ void *handle_client(void *arg)
 
     close(client_data->client_sockfd);
     free(client_data);
+    return NULL;
 }
 
 Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port)

@@ -66,7 +66,7 @@ ssize_t recvall_with_flags(int sockfd, void *buf, size_t len, int flags)
     size_t bytes_left;
     ssize_t total_received, received;
 
-    *buffer = (char *)buf;
+    buffer = (char *)buf;
     bytes_left = len;
     total_received = 0;
 
@@ -123,7 +123,7 @@ ssize_t sendall_with_flags(int sockfd, const void *buf, size_t len, int flags)
         total_sent += bytes_sent;
     }
 
-    printf("Total enviado: %d bytes\n", total_sent);
+    printf("Total enviado: %ld bytes\n", total_sent);
     return total_sent;
 }
 
@@ -177,7 +177,7 @@ Simple_Packet *create_packet_with_length(int32_t length)
     if ((packet->data = allocate_string_with_length(length)) == NULL)
     {
         free(packet); // Free the struct if string allocation fails
-        return -1;
+        return NULL;
     }
 
     return packet;
@@ -242,7 +242,7 @@ ssize_t recv_simple_packet(int sockfd, Simple_Packet **packet)
     total_recvbytes = 0;
 
     // Receive the length first
-    if (recv_bytes = recvall(sockfd, length_buffer, sizeof(int32_t)) <= 0)
+    if ((recv_bytes = recvall(sockfd, length_buffer, sizeof(int32_t))) <= 0)
     {
         return recv_bytes;
     }
@@ -266,7 +266,7 @@ ssize_t recv_simple_packet(int sockfd, Simple_Packet **packet)
     }
 
     // Receive the actual data
-    if (recv_bytes = recvall(sockfd, (*packet)->data, length) <= 0)
+    if ((recv_bytes = recvall(sockfd, (*packet)->data, length)) <= 0)
     {
         return recv_bytes;
     }
