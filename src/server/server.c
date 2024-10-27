@@ -23,6 +23,8 @@
 // Project header
 #include "server.h"
 
+volatile sig_atomic_t stop;
+
 int main(int argc, char *argv[])
 {
     char ip_number[INET_ADDRSTRLEN], port_number[PORTSTRLEN];
@@ -46,6 +48,7 @@ int main(int argc, char *argv[])
     {
         return EXIT_FAILURE;
     }
+    setup_signals();
     ret_val = handle_connections(sockfd);
     if (ret_val < 0)
     {
@@ -205,16 +208,15 @@ int setup_server(char *port_number, char *ip_number)
 int handle_connections(int sockfd)
 {
     char their_ipstr[INET_ADDRSTRLEN];
-    int i, max_fd, new_fd, num_accept, ret_val, their_port, select_ret;
+    int i, max_fd, new_fd, ret_val, their_port, select_ret;
     fd_set master, read_fds, write_fds, except_fds;
     pthread_t thread;
     pthread_attr_t attr;
     struct sockaddr their_addr; // connector's address information
     socklen_t sin_size;
-    Client_Data *clients[BACKLOG];
+    Client_Data **clients;
     Thread_Result *thread_result;
 
-    num_accept = 0;
     ret_val = 0;
 
     // Initialize sets
@@ -226,7 +228,11 @@ int handle_connections(int sockfd)
     FD_SET(sockfd, &master);
     max_fd = sockfd;
 
-    init_clients(clients, BACKLOG);
+    clients = init_clients(MAX_CLIENTS);
+    if (clients == NULL)
+    {
+        return -1;
+    }
 
     // Initialize thread attributes
     pthread_attr_init(&attr);
@@ -235,7 +241,8 @@ int handle_connections(int sockfd)
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
     // Main accept() loop
-    while (num_accept < 2)
+    stop = 0;
+    while (!stop)
     {
         // Reset sets to master value
         read_fds = master;
@@ -265,7 +272,7 @@ int handle_connections(int sockfd)
                         perror("server: accept");
                         break;
                     }
-                    num_accept++;
+
                     // Add new_fd to the master set
                     FD_SET(new_fd, &master);
                     // Update fdmax value
@@ -273,30 +280,32 @@ int handle_connections(int sockfd)
                     {
                         max_fd = new_fd;
                     }
+
                     inet_ntop(their_addr.sa_family,
                               &(((struct sockaddr_in *)&their_addr)->sin_addr),
                               their_ipstr,
                               sizeof(their_ipstr));
                     their_port = ((struct sockaddr_in *)&their_addr)->sin_port;
+                    printf("soy el nuevo fd: %d\n", new_fd);
+                    clients[new_fd] = create_client_data(new_fd, their_ipstr, their_port);
+                    if (clients[new_fd] == NULL)
+                    {
+                        ret_val = -1;
+                        FD_CLR(new_fd, &master);
+                        close(new_fd);
+                        break;
+                    }
+
                     printf("server: obtuvo conexión de %s:%d\n", their_ipstr, their_port);
                 }
                 else
                 {
                     // handle read
-                    clients[i] = create_client_data(i, their_ipstr, their_port);
-                    if (clients[i] == NULL)
-                    {
-                        ret_val = -1;
-                        FD_CLR(i, &master);
-                        close(new_fd);
-                        break;
-                    }
-
                     if (pthread_create(&thread, &attr, handle_client_read, (void *)clients[i]) != 0)
                     {
                         perror("server: pthread_create");
                         ret_val = -1;
-                        cleanup_client(clients, i);
+                        cleanup_client(&clients[i]);
                         FD_CLR(i, &master);
                         close(i);
                         break;
@@ -312,38 +321,27 @@ int handle_connections(int sockfd)
                         if (thread_result->value == THREAD_RESULT_ERROR || thread_result->value == THREAD_RESULT_CLOSED)
                         {
                             ret_val = -1;
-                            cleanup_client(clients, i);
+                            cleanup_client(&clients[i]);
                             FD_CLR(i, &master);
                             close(i);
                         }
                         free(thread_result);
                     }
                     continue;
-                    continue;
                 }
             }
             else if (FD_ISSET(i, &write_fds))
             {
                 // handle write
-                clients[i] = create_client_data(i, their_ipstr, their_port);
-                if (clients[i] == NULL)
-                {
-                    ret_val = -1;
-                    FD_CLR(i, &master);
-                    close(new_fd);
-                    break;
-                }
-
                 if (pthread_create(&thread, &attr, handle_client_write, (void *)clients[i]) != 0)
                 {
                     perror("server: pthread_create");
                     ret_val = -1;
-                    cleanup_client(clients, i);
+                    cleanup_client(&clients[i]);
                     FD_CLR(i, &master);
                     close(i);
                     break;
                 }
-
                 pthread_join(thread, (void **)&thread_result);
                 if (thread_result != NULL)
                 {
@@ -354,7 +352,7 @@ int handle_connections(int sockfd)
                     if (thread_result->value == THREAD_RESULT_ERROR || thread_result->value == THREAD_RESULT_CLOSED)
                     {
                         ret_val = -1;
-                        cleanup_client(clients, i);
+                        cleanup_client(&clients[i]);
                         FD_CLR(i, &master);
                         close(i);
                     }
@@ -367,7 +365,7 @@ int handle_connections(int sockfd)
                 // handle exceptions on the socket
                 perror("server: excepción en socket");
                 ret_val = -1;
-                cleanup_client(clients, i);
+                cleanup_client(&clients[i]);
                 FD_CLR(i, &master);
                 close(i);
                 continue;
@@ -376,7 +374,7 @@ int handle_connections(int sockfd)
     } // end while
 
     // Cleanup after loop
-    cleanup_clients(clients, BACKLOG);
+    cleanup_clients(clients, MAX_CLIENTS);
     pthread_attr_destroy(&attr);
     return ret_val;
 }
@@ -446,7 +444,7 @@ void *handle_client_write(void *arg)
     printf("Thread cliente (%s:%d): escritura comienzo\n", client_data->client_ipstr, client_data->client_port);
 
     simulate_work();
-
+    printf("packet %p", client_data->packet);
     // send PONG message
     if (client_data->packet != NULL && strstr(client_data->packet->data, "PING") != NULL)
     {
@@ -521,27 +519,42 @@ Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port)
     return data;
 }
 
-void init_clients(Client_Data *clients[], int len)
+Client_Data **init_clients(int len)
 {
-    for (int i = 0; i < len; i++)
+    Client_Data **clients = malloc(len * sizeof(Client_Data *));
+    if (clients == NULL)
     {
-        clients[i] = NULL;
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        return NULL;
     }
+    memset(clients, 0, len * sizeof(Client_Data *));
+    return clients;
 }
 
 void cleanup_clients(Client_Data **clients, int len)
 {
     for (int i = 0; i < len; i++)
     {
-        cleanup_client(clients, i);
+        cleanup_client(&clients[i]);
     }
 }
 
-void cleanup_client(Client_Data **clients, int sockfd)
+void cleanup_client(Client_Data **client)
 {
-    if (clients[sockfd] != NULL)
+    if (*client != NULL)
     {
-        free(clients[sockfd]);
-        clients[sockfd] = NULL;
+        free(*client);
+        *client = NULL;
     }
+}
+
+void setup_signals()
+{
+    signal(SIGINT, handle_sigint);
+}
+
+void handle_sigint(int sig)
+{
+    puts("Ctrl+C pressed. Exiting...");
+    stop = 1;
 }

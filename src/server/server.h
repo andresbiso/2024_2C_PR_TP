@@ -15,6 +15,8 @@
 #define PORTSTRLEN 6           // Enough to hold "65535" + '\0'
 #define VERSION "0.0.1"
 
+#define MAX_CLIENTS 1024
+
 #define THREAD_RESULT_ERROR -1
 #define THREAD_RESULT_SUCCESS 0
 #define THREAD_RESULT_CLOSED 1
@@ -41,8 +43,10 @@ int setup_server(char *port_number, char *ip_number);
 void show_help(void);
 void show_version(void);
 Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port);
-void init_clients(Client_Data **clients, int len);
+Client_Data **init_clients(int len);
 void cleanup_clients(Client_Data **clients, int len);
-void cleanup_client(Client_Data **clients, int sockfd);
+void cleanup_client(Client_Data **client);
+void setup_signals();
+void handle_sigint(int sig);
 
 #endif // SERVER_H
