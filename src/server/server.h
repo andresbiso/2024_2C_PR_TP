@@ -15,6 +15,10 @@
 #define PORTSTRLEN 6           // Enough to hold "65535" + '\0'
 #define VERSION "0.0.1"
 
+#define THREAD_RESULT_ERROR -1
+#define THREAD_RESULT_SUCCESS 0
+#define THREAD_RESULT_CLOSED 1
+
 typedef struct
 {
     int client_sockfd;
@@ -25,7 +29,7 @@ typedef struct
 
 typedef struct
 {
-    int error; // 0 if no error, -1 if error
+    int value; // THREAD_RESULT_* values
 } Thread_Result;
 
 // Function prototypes

@@ -305,9 +305,12 @@ int handle_connections(int sockfd)
                     pthread_join(thread, (void **)&thread_result);
                     if (thread_result != NULL)
                     {
-                        if (thread_result->error == -1)
+                        if (thread_result->value == THREAD_RESULT_ERROR)
                         {
                             perror("server: error en lectura");
+                        }
+                        if (thread_result->value == THREAD_RESULT_ERROR || thread_result->value == THREAD_RESULT_CLOSED)
+                        {
                             ret_val = -1;
                             cleanup_client(clients, i);
                             FD_CLR(i, &master);
@@ -315,6 +318,7 @@ int handle_connections(int sockfd)
                         }
                         free(thread_result);
                     }
+                    continue;
                     continue;
                 }
             }
@@ -343,9 +347,12 @@ int handle_connections(int sockfd)
                 pthread_join(thread, (void **)&thread_result);
                 if (thread_result != NULL)
                 {
-                    if (thread_result->error == -1)
+                    if (thread_result->value == THREAD_RESULT_ERROR)
                     {
                         perror("server: error en escritura");
+                    }
+                    if (thread_result->value == THREAD_RESULT_ERROR || thread_result->value == THREAD_RESULT_CLOSED)
+                    {
                         ret_val = -1;
                         cleanup_client(clients, i);
                         FD_CLR(i, &master);
@@ -378,7 +385,7 @@ void *handle_client_read(void *arg)
 {
     ssize_t recv_val;
     Client_Data *client_data;
-    Thread_Result *result;
+    Thread_Result *thread_result;
 
     if (arg == NULL)
     {
@@ -386,7 +393,7 @@ void *handle_client_read(void *arg)
     }
 
     client_data = (Client_Data *)arg;
-    result = (Thread_Result *)malloc(sizeof(Thread_Result));
+    thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
 
     printf("Thread cliente (%s:%d): lectura comienzo\n", client_data->client_ipstr, client_data->client_port);
 
@@ -403,30 +410,30 @@ void *handle_client_read(void *arg)
     {
         fprintf(stderr, "server: conexión cerrada antes de recibir packet\n");
         free_simple_packet(client_data->packet);
-        result->error = -1;
-        pthread_exit((void *)result);
+        thread_result->value = THREAD_RESULT_CLOSED;
+        pthread_exit((void *)thread_result);
     }
     else if (recv_val < 0)
     {
         fprintf(stderr, "server: error al recibir packet\n");
         free_simple_packet(client_data->packet);
-        result->error = -1;
-        pthread_exit((void *)result);
+        thread_result->value = THREAD_RESULT_ERROR;
+        pthread_exit((void *)thread_result);
     }
     printf("server: mensaje recibido: \"%s\"\n", client_data->packet->data);
 
     // Print completion message
     printf("Thread cliente (%s:%d): lectura fin\n", client_data->client_ipstr, client_data->client_port);
 
-    result->error = 0;
-    pthread_exit((void *)result);
+    thread_result->value = THREAD_RESULT_SUCCESS;
+    pthread_exit((void *)thread_result);
 }
 
 void *handle_client_write(void *arg)
 {
     char message[DEFAULT_BUFFER_SIZE];
     Client_Data *client_data;
-    Thread_Result *result;
+    Thread_Result *thread_result;
 
     if (arg == NULL)
     {
@@ -434,14 +441,14 @@ void *handle_client_write(void *arg)
     }
 
     client_data = (Client_Data *)arg;
-    result = (Thread_Result *)malloc(sizeof(Thread_Result));
+    thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
 
     printf("Thread cliente (%s:%d): escritura comienzo\n", client_data->client_ipstr, client_data->client_port);
 
     simulate_work();
 
     // send PONG message
-    if (strstr(client_data->packet->data, "PING") != NULL)
+    if (client_data->packet != NULL && strstr(client_data->packet->data, "PING") != NULL)
     {
         puts("server: el mensaje contiene \"PING\"");
         free_simple_packet(client_data->packet);
@@ -449,15 +456,15 @@ void *handle_client_write(void *arg)
         if ((client_data->packet = create_simple_packet(message)) == NULL)
         {
             fprintf(stderr, "server: error al crear packet\n");
-            result->error = -1;
-            pthread_exit((void *)result);
+            thread_result->value = THREAD_RESULT_ERROR;
+            pthread_exit((void *)thread_result);
         }
         if (send_simple_packet(client_data->client_sockfd, client_data->packet) < 0)
         {
             fprintf(stderr, "server: error al enviar packet\n");
             free_simple_packet(client_data->packet);
-            result->error = -1;
-            pthread_exit((void *)result);
+            thread_result->value = THREAD_RESULT_ERROR;
+            pthread_exit((void *)thread_result);
         }
         printf("server: mensaje enviado: \"%s\"\n", client_data->packet->data);
     }
@@ -468,15 +475,15 @@ void *handle_client_write(void *arg)
         if ((client_data->packet = create_simple_packet(message)) == NULL)
         {
             fprintf(stderr, "server: error al crear packet\n");
-            result->error = -1;
-            pthread_exit((void *)result);
+            thread_result->value = THREAD_RESULT_ERROR;
+            pthread_exit((void *)thread_result);
         }
         if (send_simple_packet(client_data->client_sockfd, client_data->packet) < 0)
         {
             fprintf(stderr, "server: Error al enviar packet\n");
             free_simple_packet(client_data->packet);
-            result->error = -1;
-            pthread_exit((void *)result);
+            thread_result->value = THREAD_RESULT_ERROR;
+            pthread_exit((void *)thread_result);
         }
         printf("server: mensaje enviado: \"%s\"\n", client_data->packet->data);
     }
@@ -484,8 +491,8 @@ void *handle_client_write(void *arg)
     // Print completion message
     printf("Thread cliente (%s:%d): escritura fin\n", client_data->client_ipstr, client_data->client_port);
 
-    result->error = 0;
-    pthread_exit((void *)result);
+    thread_result->value = THREAD_RESULT_SUCCESS;
+    pthread_exit((void *)thread_result);
 }
 
 Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port)
