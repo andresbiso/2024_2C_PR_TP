@@ -52,6 +52,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    puts("server: finalizando");
     return EXIT_SUCCESS;
 }
 
@@ -268,6 +269,9 @@ void *handle_client(void *arg)
     Simple_Packet *send_packet, *recv_packet;
     Client_Data *client_data;
 
+    send_packet = NULL;
+    recv_packet = NULL;
+
     if (arg == NULL)
     {
         return NULL;
@@ -284,12 +288,16 @@ void *handle_client(void *arg)
     if ((send_packet = create_simple_packet(message)) == NULL)
     {
         fprintf(stderr, "server: error al crear packet\n");
+        close(client_data->client_sockfd);
+        free(client_data);
         return NULL;
     }
     if (send_simple_packet(client_data->client_sockfd, send_packet) < 0)
     {
         fprintf(stderr, "server: Error al enviar packet\n");
         free_simple_packet(send_packet);
+        close(client_data->client_sockfd);
+        free(client_data);
         return NULL;
     }
     printf("server: mensaje enviado: \"%s\"\n", send_packet->data);
@@ -300,12 +308,16 @@ void *handle_client(void *arg)
     {
         fprintf(stderr, "server: conexión cerrada antes de recibir packet\n");
         free_simple_packet(recv_packet);
+        close(client_data->client_sockfd);
+        free(client_data);
         return NULL;
     }
     else if (recv_val < 0)
     {
         fprintf(stderr, "server: error al recibir packet\n");
         free_simple_packet(recv_packet);
+        close(client_data->client_sockfd);
+        free(client_data);
         return NULL;
     }
     printf("server: mensaje recibido: \"%s\"\n", recv_packet->data);
@@ -318,12 +330,16 @@ void *handle_client(void *arg)
         if ((send_packet = create_simple_packet(message)) == NULL)
         {
             fprintf(stderr, "server: error al crear packet\n");
+            close(client_data->client_sockfd);
+            free(client_data);
             return NULL;
         }
         if (send_simple_packet(client_data->client_sockfd, send_packet) < 0)
         {
             fprintf(stderr, "server: error al enviar packet\n");
             free_simple_packet(send_packet);
+            close(client_data->client_sockfd);
+            free(client_data);
             return NULL;
         }
         printf("server: mensaje enviado: \"%s\"\n", send_packet->data);

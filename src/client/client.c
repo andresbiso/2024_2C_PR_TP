@@ -51,6 +51,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    puts("client: finalizando");
     return EXIT_SUCCESS;
 }
 
@@ -200,13 +201,21 @@ int handle_connection(int server_sockfd)
     ssize_t recv_val;
     Simple_Packet *send_packet, *recv_packet;
 
+    send_packet = NULL;
+    recv_packet = NULL;
+
+    if (server_sockfd <= 0)
+    {
+        return -1;
+    }
+
     // receive initial message from server
     recv_val = recv_simple_packet(server_sockfd, &recv_packet);
     if (recv_val == 0)
     {
         fprintf(stderr, "client: conexión cerrada antes de recibir packet\n");
         free_simple_packet(recv_packet);
-        return -1;
+        return 0;
     }
     else if (recv_val < 0)
     {
@@ -223,7 +232,7 @@ int handle_connection(int server_sockfd)
     if ((send_packet = create_simple_packet(message)) == NULL)
     {
         fprintf(stderr, "client: error al crear packet\n");
-        return 1;
+        return -1;
     }
     if (send_simple_packet(server_sockfd, send_packet) < 0)
     {
@@ -239,7 +248,7 @@ int handle_connection(int server_sockfd)
     {
         fprintf(stderr, "client: conexión cerrada antes de recibir packet\n");
         free_simple_packet(recv_packet);
-        return -1;
+        return 0;
     }
     else if (recv_val < 0)
     {
