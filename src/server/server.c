@@ -226,7 +226,7 @@ int handle_connections(int sockfd)
     FD_SET(sockfd, &master);
     max_fd = sockfd;
 
-    init_clients(&clients, BACKLOG);
+    init_clients(clients, BACKLOG);
 
     // Initialize thread attributes
     pthread_attr_init(&attr);
@@ -376,7 +376,6 @@ int handle_connections(int sockfd)
 
 void *handle_client_read(void *arg)
 {
-    char message[DEFAULT_BUFFER_SIZE];
     ssize_t recv_val;
     Client_Data *client_data;
     Thread_Result *result;
@@ -426,7 +425,6 @@ void *handle_client_read(void *arg)
 void *handle_client_write(void *arg)
 {
     char message[DEFAULT_BUFFER_SIZE];
-    ssize_t recv_val;
     Client_Data *client_data;
     Thread_Result *result;
 
@@ -516,7 +514,7 @@ Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port)
     return data;
 }
 
-void init_clients(Client_Data **clients, int len)
+void init_clients(Client_Data *clients[], int len)
 {
     for (int i = 0; i < len; i++)
     {

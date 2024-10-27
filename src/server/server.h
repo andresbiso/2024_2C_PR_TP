@@ -37,5 +37,8 @@ int setup_server(char *port_number, char *ip_number);
 void show_help(void);
 void show_version(void);
 Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port);
+void init_clients(Client_Data **clients, int len);
+void cleanup_clients(Client_Data **clients, int len);
+void cleanup_client(Client_Data **clients, int sockfd);
 
 #endif // SERVER_H
