@@ -286,7 +286,7 @@ int handle_connections(int sockfd)
                               their_ipstr,
                               sizeof(their_ipstr));
                     their_port = ((struct sockaddr_in *)&their_addr)->sin_port;
-                    printf("soy el nuevo fd: %d\n", new_fd);
+
                     clients[new_fd] = create_client_data(new_fd, their_ipstr, their_port);
                     if (clients[new_fd] == NULL)
                     {
@@ -327,6 +327,13 @@ int handle_connections(int sockfd)
                         }
                         free(thread_result);
                     }
+                    else
+                    {
+                        ret_val = -1;
+                        cleanup_client(&clients[i]);
+                        FD_CLR(i, &master);
+                        close(i);
+                    }
                     continue;
                 }
             }
@@ -357,6 +364,13 @@ int handle_connections(int sockfd)
                         close(i);
                     }
                     free(thread_result);
+                }
+                else
+                {
+                    ret_val = -1;
+                    cleanup_client(&clients[i]);
+                    FD_CLR(i, &master);
+                    close(i);
                 }
                 continue;
             }
@@ -392,6 +406,11 @@ void *handle_client_read(void *arg)
 
     client_data = (Client_Data *)arg;
     thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
+    if (thread_result == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        return NULL;
+    }
 
     printf("Thread cliente (%s:%d): lectura comienzo\n", client_data->client_ipstr, client_data->client_port);
 
@@ -400,6 +419,7 @@ void *handle_client_read(void *arg)
     if (client_data->packet != NULL)
     {
         free_simple_packet(client_data->packet);
+        client_data->packet = NULL;
     }
 
     // receive initial message from client
@@ -408,6 +428,7 @@ void *handle_client_read(void *arg)
     {
         fprintf(stderr, "server: conexión cerrada antes de recibir packet\n");
         free_simple_packet(client_data->packet);
+        client_data->packet = NULL;
         thread_result->value = THREAD_RESULT_CLOSED;
         pthread_exit((void *)thread_result);
     }
@@ -415,6 +436,7 @@ void *handle_client_read(void *arg)
     {
         fprintf(stderr, "server: error al recibir packet\n");
         free_simple_packet(client_data->packet);
+        client_data->packet = NULL;
         thread_result->value = THREAD_RESULT_ERROR;
         pthread_exit((void *)thread_result);
     }
@@ -440,11 +462,15 @@ void *handle_client_write(void *arg)
 
     client_data = (Client_Data *)arg;
     thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
+    if (thread_result == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        return NULL;
+    }
 
     printf("Thread cliente (%s:%d): escritura comienzo\n", client_data->client_ipstr, client_data->client_port);
 
     simulate_work();
-    printf("packet %p", client_data->packet);
     // send PONG message
     if (client_data->packet != NULL && strstr(client_data->packet->data, "PING") != NULL)
     {
@@ -461,6 +487,7 @@ void *handle_client_write(void *arg)
         {
             fprintf(stderr, "server: error al enviar packet\n");
             free_simple_packet(client_data->packet);
+            client_data->packet = NULL;
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
@@ -480,6 +507,7 @@ void *handle_client_write(void *arg)
         {
             fprintf(stderr, "server: Error al enviar packet\n");
             free_simple_packet(client_data->packet);
+            client_data->packet = NULL;
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
@@ -521,7 +549,8 @@ Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port)
 
 Client_Data **init_clients(int len)
 {
-    Client_Data **clients = malloc(len * sizeof(Client_Data *));
+    Client_Data **clients;
+    clients = (Client_Data **)malloc(len * sizeof(Client_Data *));
     if (clients == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
