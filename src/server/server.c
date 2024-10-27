@@ -88,7 +88,7 @@ int parse_arguments(int argc, char *argv[], char *port_number, char *ip_number)
             }
             else
             {
-                printf("server: Opción o argumento no soportado: %s\n", argv[i]);
+                printf("server: opción o argumento no soportado: %s\n", argv[i]);
                 show_help();
                 ret_val = -1;
                 break;
@@ -154,7 +154,7 @@ int setup_server(char *port_number, char *ip_number)
                              p->ai_protocol)) == -1)
         {
             perror("server: socket");
-            return -1;
+            continue;
         }
 
         // Ask the kernel to let me reuse the socket if already in use from previous run
@@ -162,14 +162,14 @@ int setup_server(char *port_number, char *ip_number)
                        sizeof(int)) == -1)
         {
             perror("server: setsockopt");
-            return -1;
+            continue;
         }
 
         if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
         {
             close(sockfd);
             perror("server: bind");
-            return -1;
+            continue;
         }
 
         break;
@@ -204,13 +204,14 @@ int setup_server(char *port_number, char *ip_number)
 int handle_connections(int sockfd)
 {
     char their_ipstr[INET_ADDRSTRLEN];
-    int their_port, new_fd, ret_val;
+    int their_port, new_fd, num_accept, ret_val;
     pthread_t thread;
     pthread_attr_t attr;
     struct sockaddr their_addr; // connector's address information
     socklen_t sin_size;
     Client_Data *client_data;
 
+    num_accept = 0;
     ret_val = 0;
     // Initialize thread attributes
     pthread_attr_init(&attr);
@@ -219,7 +220,7 @@ int handle_connections(int sockfd)
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
     // Main accept() loop
-    while (1)
+    while (num_accept < 2)
     {
         sin_size = sizeof(their_addr);
         // new connection on new_fd
@@ -229,7 +230,7 @@ int handle_connections(int sockfd)
             perror("server: accept");
             break;
         }
-
+        num_accept++;
         inet_ntop(their_addr.sa_family,
                   &(((struct sockaddr_in *)&their_addr)->sin_addr),
                   their_ipstr,
@@ -248,7 +249,7 @@ int handle_connections(int sockfd)
         if (pthread_create(&thread, &attr, handle_client, client_data) != 0)
         {
             ret_val = -1;
-            perror("pthread_create");
+            perror("server: pthread_create");
             free(client_data);
             close(new_fd);
             break;
@@ -282,12 +283,12 @@ void *handle_client(void *arg)
     strcpy(message, "Hola, soy el server");
     if ((send_packet = create_simple_packet(message)) == NULL)
     {
-        fprintf(stderr, "Error al crear packet\n");
+        fprintf(stderr, "server: error al crear packet\n");
         return NULL;
     }
     if (send_simple_packet(client_data->client_sockfd, send_packet) < 0)
     {
-        fprintf(stderr, "Error al enviar packet\n");
+        fprintf(stderr, "server: Error al enviar packet\n");
         free_simple_packet(send_packet);
         return NULL;
     }
@@ -297,13 +298,13 @@ void *handle_client(void *arg)
     recv_val = recv_simple_packet(client_data->client_sockfd, &recv_packet);
     if (recv_val == 0)
     {
-        fprintf(stderr, "Conexión cerrada antes de recibir packet\n");
+        fprintf(stderr, "server: conexión cerrada antes de recibir packet\n");
         free_simple_packet(recv_packet);
         return NULL;
     }
     else if (recv_val < 0)
     {
-        fprintf(stderr, "Error al recibir packet\n");
+        fprintf(stderr, "server: error al recibir packet\n");
         free_simple_packet(recv_packet);
         return NULL;
     }
@@ -316,12 +317,12 @@ void *handle_client(void *arg)
         strcpy(message, "PONG");
         if ((send_packet = create_simple_packet(message)) == NULL)
         {
-            fprintf(stderr, "Error al crear packet\n");
+            fprintf(stderr, "server: error al crear packet\n");
             return NULL;
         }
         if (send_simple_packet(client_data->client_sockfd, send_packet) < 0)
         {
-            fprintf(stderr, "Error al enviar packet\n");
+            fprintf(stderr, "server: error al enviar packet\n");
             free_simple_packet(send_packet);
             return NULL;
         }
@@ -349,7 +350,7 @@ Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port)
     data = (Client_Data *)malloc(sizeof(Client_Data));
     if (data == NULL)
     {
-        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
         return NULL; // Memory allocation failed
     }
     // Initialize allocated memory to zero
@@ -361,215 +362,3 @@ Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port)
 
     return data;
 }
-
-// Comment: make sure that the functions used by both handlers return some of the values mentioned
-// either that or adjust to the values I actually return.
-
-// void *handle_client_read(void *arg)
-// {
-//     ClientData *client_data = (ClientData *)arg;
-//     int client_sockfd = client_data->client_sockfd;
-//     char message[DEFAULT_BUFFER_SIZE];
-//     Simple_Packet *recv_packet;
-//     int nbytes;
-
-//     // receive initial message from client
-//     if ((nbytes = recv_simple_packet(client_sockfd, &recv_packet)) <= 0)
-//     {
-//         if (nbytes == 0)
-//         {
-//             // Connection closed by client
-//             printf("server: socket %d closed by client\n", client_sockfd);
-//         }
-//         else
-//         {
-//             perror("recv");
-//         }
-//         close(client_sockfd);
-//         client_data->client_sockfd = -1; // Signal to handle_connections
-//         free_simple_packet(recv_packet);
-//         return NULL;
-//     }
-//     printf("server: mensaje recibido: \"%s\"\n", recv_packet->data);
-//     // PONG message handling
-//     if (strstr(recv_packet->data, "PING") != NULL)
-//     {
-//         printf("server: el mensaje contiene \"PING\"\n");
-//         strcpy(message, "PONG");
-//         send_response(client_sockfd, message);
-//     }
-//     free_simple_packet(recv_packet);
-//     return NULL;
-// }
-
-// void *handle_client_write(void *arg)
-// {
-//     ClientData *client_data = (ClientData *)arg;
-//     int client_sockfd = client_data->client_sockfd;
-//     char message[DEFAULT_BUFFER_SIZE];
-//     Simple_Packet *send_packet;
-//     ssize_t nbytes;
-
-//     // send initial server message
-//     strcpy(message, "Hola, soy el server");
-//     if (create_simple_packet(&send_packet, message) < 0)
-//     {
-//         fprintf(stderr, "Error al crear packet\n");
-//         return NULL;
-//     }
-//     nbytes = send_simple_packet(client_sockfd, send_packet);
-//     if (nbytes < 0)
-//     {
-//         if (errno == EPIPE || errno == ECONNRESET)
-//         {
-//             // Connection closed by client
-//             printf("server: socket %d closed by client during send\n", client_sockfd);
-//             close(client_sockfd);
-//             client_data->client_sockfd = -1; // Signal to handle_connections
-//         }
-//         else
-//         {
-//             perror("send");
-//         }
-//         free_simple_packet(send_packet);
-//         return NULL;
-//     }
-//     printf("server: mensaje enviado: \"%s\"\n", send_packet->data);
-//     free_simple_packet(send_packet);
-//     return NULL;
-// }
-
-// void handle_connections(int sockfd)
-// {
-//     char their_ipstr[INET_ADDRSTRLEN];
-//     int their_port, new_fd, i, rv;
-//     struct sockaddr their_addr;
-//     socklen_t sin_size;
-//     ClientData *client_data;
-//     pthread_t thread;
-//     pthread_attr_t attr;
-//     fd_set master, read_fds, write_fds, except_fds;
-//     int fdmax;
-
-//     FD_ZERO(&master);
-//     FD_ZERO(&read_fds);
-//     FD_ZERO(&write_fds);
-//     FD_ZERO(&except_fds);
-//     FD_SET(sockfd, &master);
-//     fdmax = sockfd;
-
-//     // Inicializar atributos del hilo
-//     pthread_attr_init(&attr);
-//     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-//     while (1)
-//     {
-//         read_fds = master;
-//         write_fds = master;
-//         except_fds = master;
-
-//         if ((rv = select(fdmax + 1, &read_fds, &write_fds, &except_fds, NULL)) == -1)
-//         {
-//             perror("select");
-//             exit(EXIT_FAILURE);
-//         }
-
-//         for (i = 0; i <= fdmax; i++)
-//         {
-//             if (FD_ISSET(i, &read_fds))
-//             {
-//                 if (i == sockfd)
-//                 {
-//                     sin_size = sizeof(their_addr);
-//                     if ((new_fd = accept(sockfd, &their_addr, &sin_size)) == -1)
-//                     {
-//                         perror("accept");
-//                     }
-//                     else
-//                     {
-//                         FD_SET(new_fd, &master);
-//                         if (new_fd > fdmax)
-//                         {
-//                             fdmax = new_fd;
-//                         }
-//                         inet_ntop(their_addr.sa_family,
-//                                   &(((struct sockaddr_in *)&their_addr)->sin_addr),
-//                                   their_ipstr, sizeof their_ipstr);
-//                         their_port = ((struct sockaddr_in *)&their_addr)->sin_port;
-//                         printf("server: obtained connection from %s:%d\n", their_ipstr, their_port);
-//                     }
-//                 }
-//                 else
-//                 {
-//                     if ((client_data = (ClientData *)malloc(sizeof(ClientData))) == NULL)
-//                     {
-//                         perror("malloc");
-//                         close(i);
-//                         FD_CLR(i, &master);
-//                         continue;
-//                     }
-//                     client_data->client_sockfd = i;
-//                     inet_ntop(their_addr.sa_family,
-//                               &(((struct sockaddr_in *)&their_addr)->sin_addr),
-//                               client_data->client_ipstr,
-//                               sizeof(client_data->client_ipstr));
-//                     client_data->client_port = their_port;
-
-//                     if (pthread_create(&thread, &attr, handle_client_read, (void *)client_data) != 0)
-//                     {
-//                         perror("pthread_create");
-//                         close(i);
-//                         FD_CLR(i, &master);
-//                         free(client_data);
-//                     }
-
-//                     // Check if socket needs to be removed (closed by client)
-//                     if (client_data->client_sockfd == -1)
-//                     {
-//                         FD_CLR(i, &master);
-//                     }
-//                 }
-//             }
-//             else if (FD_ISSET(i, &write_fds))
-//             {
-//                 if ((client_data = (ClientData *)malloc(sizeof(ClientData))) == NULL)
-//                 {
-//                     perror("malloc");
-//                     close(i);
-//                     FD_CLR(i, &master);
-//                     continue;
-//                 }
-//                 client_data->client_sockfd = i;
-//                 inet_ntop(their_addr.sa_family,
-//                           &(((struct sockaddr_in *)&their_addr)->sin_addr),
-//                           client_data->client_ipstr,
-//                           sizeof(client_data->client_ipstr));
-//                 client_data->client_port = their_port;
-
-//                 if (pthread_create(&thread, &attr, handle_client_write, (void *)client_data) != 0)
-//                 {
-//                     perror("pthread_create");
-//                     close(i);
-//                     FD_CLR(i, &master);
-//                     free(client_data);
-//                 }
-
-//                 // Check if socket needs to be removed (closed by client)
-//                 if (client_data->client_sockfd == -1)
-//                 {
-//                     FD_CLR(i, &master);
-//                 }
-//             }
-//             else if (FD_ISSET(i, &except_fds))
-//             {
-//                 // handle exceptions on the socket
-//                 perror("exception on socket");
-//                 close(i);
-//                 FD_CLR(i, &master);
-//             }
-//         }
-//     }
-
-//     // Destruir atributos del hilo
-//     pthread_attr_destroy(&attr);
-// }

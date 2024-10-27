@@ -24,87 +24,41 @@
 
 int main(int argc, char *argv[])
 {
-    char *ip_number, *port_number;
-    int sockfd; // Listen on sock_fd
-
-    if (malloc_string(&ip_number, INET_ADDRSTRLEN) != 0)
-    {
-        exit(EXIT_FAILURE);
-    }
-    if (malloc_string(&port_number, PORTSTRLEN) != 0)
-    {
-        exit(EXIT_FAILURE);
-    }
+    char ip_number[INET_ADDRSTRLEN], port_number[PORTSTRLEN];
+    int ret_val;
+    int sockfd; // listen on sock_fd
 
     strcpy(ip_number, DEFAULT_IP);
     strcpy(port_number, DEFAULT_PORT);
 
-    parse_arguments(argc, argv, &port_number, &ip_number);
+    ret_val = parse_arguments(argc, argv, port_number, ip_number);
+    if (ret_val > 0)
+    {
+        return EXIT_SUCCESS;
+    }
+    else if (ret_val < 0)
+    {
+        return EXIT_FAILURE;
+    }
     sockfd = setup_client(port_number, ip_number);
-    handle_connection(sockfd);
-
-    // free allocated memory
-    free(ip_number);
-    free(port_number);
+    if (sockfd <= 0)
+    {
+        return EXIT_FAILURE;
+    }
+    ret_val = handle_connection(sockfd);
+    if (ret_val < 0)
+    {
+        return EXIT_FAILURE;
+    }
 
     return EXIT_SUCCESS;
 }
 
-void handle_connection(int server_sockfd)
+int parse_arguments(int argc, char *argv[], char *port_number, char *ip_number)
 {
-    char *message; // new connection on new_fd
-    Simple_Packet *send_packet, *recv_packet;
+    int ret_val;
 
-    if (malloc_string(&message, DEFAULT_BUFFER_SIZE) != 0)
-    {
-        exit(EXIT_FAILURE);
-    }
-
-    // receive initial message from server
-    if (recv_simple_packet(server_sockfd, &recv_packet) < 0)
-    {
-        fprintf(stderr, "Error al recibir packet\n");
-        free_simple_packet(recv_packet);
-        free(message);
-        exit(EXIT_FAILURE);
-    }
-    printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
-    free_simple_packet(recv_packet);
-
-    // send PING message
-    strcpy(message, "PING");
-    if (create_simple_packet(&send_packet, message) < 0)
-    {
-        fprintf(stderr, "Error al crear packet\n");
-        free(message);
-        exit(EXIT_FAILURE);
-    }
-    if (send_simple_packet(server_sockfd, send_packet) < 0)
-    {
-        fprintf(stderr, "Error al enviar packet\n");
-        free_simple_packet(send_packet);
-        free(message);
-        exit(EXIT_FAILURE);
-    }
-    printf("client: mensaje enviado: \"%s\"\n", send_packet->data);
-    free_simple_packet(send_packet);
-    // receive responmse message from server
-    if (recv_simple_packet(server_sockfd, &recv_packet) < 0)
-    {
-        fprintf(stderr, "Error al recibir packet\n");
-        free_simple_packet(recv_packet);
-        free(message);
-        exit(EXIT_FAILURE);
-    }
-    printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
-    free_simple_packet(recv_packet);
-    close(server_sockfd);
-
-    free(message);
-}
-
-void parse_arguments(int argc, char *argv[], char **port_number, char **ip_number)
-{
+    ret_val = 0;
     if (argc >= 2)
     {
         for (int i = 1; i < argc; i++)
@@ -112,51 +66,73 @@ void parse_arguments(int argc, char *argv[], char **port_number, char **ip_numbe
             if (strcmp(argv[i], "--help") == 0)
             {
                 show_help();
-                exit(EXIT_SUCCESS);
+                ret_val = 1;
+                break;
             }
             else if (strcmp(argv[i], "--version") == 0)
             {
                 show_version();
-                exit(EXIT_SUCCESS);
+                ret_val = 1;
+                break;
             }
             else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc)
             {
-                strcpy(*port_number, argv[i + 1]);
+                strcpy(port_number, argv[i + 1]);
                 i++; // Skip the next argument since it's the port number
             }
             else if (strcmp(argv[i], "--ip") == 0 && i + 1 < argc)
             {
-                strcpy(*ip_number, argv[i + 1]);
+                strcpy(ip_number, argv[i + 1]);
                 i++; // Skip the next argument since it's the IP address
             }
             else
             {
-                printf("client: Opción o argumento no soportado: %s\n", argv[i]);
+                printf("client: opción o argumento no soportado: %s\n", argv[i]);
                 show_help();
-                exit(EXIT_FAILURE);
+                ret_val = -1;
+                break;
             }
         }
     }
+    return ret_val;
+}
+
+void show_help()
+{
+    puts("Uso: client [opciones]");
+    puts("Opciones:");
+    puts("  --help      Muestra este mensaje de ayuda");
+    puts("  --version   Muestra version del programa");
+    puts("  --port <puerto> Especificar el número de puerto del servidor");
+    puts("  --ip <ip> Especificar el número de ip del servidor");
+}
+
+void show_version()
+{
+    printf("Client Version %s\n", VERSION);
 }
 
 int setup_client(char *port_number, char *ip_number)
 {
-    int local_port, returned_value, sockfd;
+    int gai_ret_val, local_port, sockfd;
     char local_ip[INET_ADDRSTRLEN], their_ipstr[INET_ADDRSTRLEN];
-    struct addrinfo hints, *servinfo, *p;
+    struct addrinfo *servinfo, *p;
     struct sockaddr_in local_addr, *ipv4;
-    void *their_addr;
+    struct in_addr *their_addr;
     socklen_t local_addr_len;
+    struct addrinfo hints;
+
+    sockfd = 0;
 
     // Setup addinfo
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET; // AF_INET to force version IPv4
     hints.ai_socktype = SOCK_STREAM;
 
-    if ((returned_value = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
+    if ((gai_ret_val = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
     {
-        fprintf(stderr, "client: getaddrinfo: %s\n", gai_strerror(returned_value));
-        return 1;
+        fprintf(stderr, "client: getaddrinfo: %s\n", gai_strerror(gai_ret_val));
+        return -1;
     }
 
     puts("client: direcciones resueltas");
@@ -196,7 +172,7 @@ int setup_client(char *port_number, char *ip_number)
     if (p == NULL)
     {
         fprintf(stderr, "client: no pudo realizarse el connect\n");
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     // Show server ip and port
@@ -218,17 +194,61 @@ int setup_client(char *port_number, char *ip_number)
     return sockfd;
 }
 
-void show_help()
+int handle_connection(int server_sockfd)
 {
-    puts("Uso: client [opciones]");
-    puts("Opciones:");
-    puts("  --help      Muestra este mensaje de ayuda");
-    puts("  --version   Muestra version del programa");
-    puts("  --port <puerto> Especificar el número de puerto del servidor");
-    puts("  --ip <ip> Especificar el número de ip del servidor");
-}
+    char message[DEFAULT_BUFFER_SIZE];
+    ssize_t recv_val;
+    Simple_Packet *send_packet, *recv_packet;
 
-void show_version()
-{
-    printf("Client Version %s\n", VERSION);
+    // receive initial message from server
+    recv_val = recv_simple_packet(server_sockfd, &recv_packet);
+    if (recv_val == 0)
+    {
+        fprintf(stderr, "client: conexión cerrada antes de recibir packet\n");
+        free_simple_packet(recv_packet);
+        return -1;
+    }
+    else if (recv_val < 0)
+    {
+        fprintf(stderr, "client: error al recibir packet\n");
+        free_simple_packet(recv_packet);
+        return -1;
+    }
+
+    printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
+    free_simple_packet(recv_packet);
+
+    // send PING message
+    strcpy(message, "PING");
+    if ((send_packet = create_simple_packet(message)) == NULL)
+    {
+        fprintf(stderr, "client: error al crear packet\n");
+        return 1;
+    }
+    if (send_simple_packet(server_sockfd, send_packet) < 0)
+    {
+        fprintf(stderr, "client: error al enviar packet\n");
+        free_simple_packet(send_packet);
+        return -1;
+    }
+    printf("client: mensaje enviado: \"%s\"\n", send_packet->data);
+    free_simple_packet(send_packet);
+    // receive responmse message from server
+    recv_val = recv_simple_packet(server_sockfd, &recv_packet);
+    if (recv_val == 0)
+    {
+        fprintf(stderr, "client: conexión cerrada antes de recibir packet\n");
+        free_simple_packet(recv_packet);
+        return -1;
+    }
+    else if (recv_val < 0)
+    {
+        fprintf(stderr, "client: error al recibir packet\n");
+        free_simple_packet(recv_packet);
+        return -1;
+    }
+    printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
+    free_simple_packet(recv_packet);
+    close(server_sockfd);
+    return 0;
 }
