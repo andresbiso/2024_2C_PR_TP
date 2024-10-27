@@ -20,10 +20,17 @@ typedef struct
     int client_sockfd;
     char client_ipstr[INET_ADDRSTRLEN];
     in_port_t client_port;
+    Simple_Packet *packet;
 } Client_Data;
 
+typedef struct
+{
+    int error; // 0 if no error, -1 if error
+} Thread_Result;
+
 // Function prototypes
-void *handle_client(void *arg);
+void *handle_client_write(void *arg);
+void *handle_client_read(void *arg);
 int handle_connections(int sockfd);
 int parse_arguments(int argc, char *argv[], char *port_number, char *ip_number);
 int setup_server(char *port_number, char *ip_number);
