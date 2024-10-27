@@ -26,24 +26,40 @@
 int main(int argc, char *argv[])
 {
     char ip_number[INET_ADDRSTRLEN], port_number[PORTSTRLEN];
+    int ret_val;
     int sockfd; // listen on sock_fd
 
     strcpy(ip_number, DEFAULT_IP);
     strcpy(port_number, DEFAULT_PORT);
 
-    parse_arguments(argc, argv, &port_number, &ip_number);
+    ret_val = parse_arguments(argc, argv, &port_number, &ip_number);
+    if (ret_val > 0)
+    {
+        return EXIT_SUCCESS;
+    }
+    else if (ret_val < 0)
+    {
+        return EXIT_FAILURE;
+    }
     sockfd = setup_server(port_number, ip_number);
-    handle_connections(sockfd);
-
-    // free allocated memory
-    free(ip_number);
-    free(port_number);
+    if (sockfd <= 0)
+    {
+        return EXIT_FAILURE;
+    }
+    ret_val = handle_connections(sockfd);
+    if (ret_val < 0)
+    {
+        return EXIT_FAILURE;
+    }
 
     return EXIT_SUCCESS;
 }
 
-void parse_arguments(int argc, char *argv[], char **port_number, char **ip_number)
+int parse_arguments(int argc, char *argv[], char **port_number, char **ip_number)
 {
+    int ret_val;
+
+    ret_val = 0;
     if (argc >= 2)
     {
         for (int i = 1; i < argc; i++)
@@ -51,12 +67,12 @@ void parse_arguments(int argc, char *argv[], char **port_number, char **ip_numbe
             if (strcmp(argv[i], "--help") == 0)
             {
                 show_help();
-                exit(EXIT_SUCCESS);
+                ret_val = 1;
             }
             else if (strcmp(argv[i], "--version") == 0)
             {
                 show_version();
-                exit(EXIT_SUCCESS);
+                ret_val = 1;
             }
             else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc)
             {
@@ -72,7 +88,7 @@ void parse_arguments(int argc, char *argv[], char **port_number, char **ip_numbe
             {
                 printf("server: Opción o argumento no soportado: %s\n", argv[i]);
                 show_help();
-                exit(EXIT_FAILURE);
+                ret_val = -1;
             }
         }
     }
@@ -95,7 +111,7 @@ void show_version()
 
 int setup_server(char *port_number, char *ip_number)
 {
-    int returned_value, sockfd;
+    int gai_ret_val, sockfd;
     char my_ipstr[INET_ADDRSTRLEN];
     struct addrinfo hints, *servinfo, *p;
     struct sockaddr_in *ipv4;
@@ -103,16 +119,17 @@ int setup_server(char *port_number, char *ip_number)
     void *my_addr;
 
     yes = 1;
+    sockfd = 0;
 
     // Setup addinfo
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET; // AF_INET to force version IPv4
     hints.ai_socktype = SOCK_STREAM;
 
-    if ((returned_value = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
+    if ((gai_ret_val = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
     {
-        fprintf(stderr, "server: getaddrinfo: %s\n", gai_strerror(returned_value));
-        return 1;
+        fprintf(stderr, "server: getaddrinfo: %s\n", gai_strerror(gai_ret_val));
+        return -1;
     }
 
     puts("server: direcciones resueltas");
@@ -133,7 +150,7 @@ int setup_server(char *port_number, char *ip_number)
                              p->ai_protocol)) == -1)
         {
             perror("server: socket");
-            continue;
+            return -1;
         }
 
         // Ask the kernel to let me reuse the socket if already in use from previous run
@@ -141,14 +158,14 @@ int setup_server(char *port_number, char *ip_number)
                        sizeof(int)) == -1)
         {
             perror("server: setsockopt");
-            exit(EXIT_FAILURE);
+            return -1;
         }
 
         if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
         {
             close(sockfd);
             perror("server: bind");
-            continue;
+            return -1;
         }
 
         break;
@@ -160,13 +177,13 @@ int setup_server(char *port_number, char *ip_number)
     if (p == NULL)
     {
         fprintf(stderr, "server: no pudo realizarse el bind\n");
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     if (listen(sockfd, BACKLOG) == -1)
     {
         perror("server: listen");
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     // Show listening ip and port
@@ -180,16 +197,17 @@ int setup_server(char *port_number, char *ip_number)
     return sockfd;
 }
 
-void handle_connections(int sockfd)
+int handle_connections(int sockfd)
 {
     char their_ipstr[INET_ADDRSTRLEN];
-    int their_port, new_fd;
+    int their_port, new_fd, ret_val;
     pthread_t thread;
     pthread_attr_t attr;
     struct sockaddr their_addr; // connector's address information
     socklen_t sin_size;
     Client_Data *client_data;
 
+    ret_val = 0;
     // Initialize thread attributes
     pthread_attr_init(&attr);
     // detached: the system will automatically clean up the resources of the thread when it terminates.
@@ -203,6 +221,7 @@ void handle_connections(int sockfd)
         // new connection on new_fd
         if ((new_fd = accept(sockfd, &their_addr, &sin_size)) == -1)
         {
+            ret_val = -1;
             perror("server: accept");
             break;
         }
@@ -217,12 +236,14 @@ void handle_connections(int sockfd)
         client_data = create_client_data(new_fd, their_ipstr, their_port);
         if (client_data == NULL)
         {
+            ret_val = -1;
             close(new_fd);
             break;
         }
 
         if (pthread_create(&thread, &attr, handle_client, client_data) != 0)
         {
+            ret_val = -1;
             perror("pthread_create");
             free(client_data);
             close(new_fd);
@@ -232,53 +253,55 @@ void handle_connections(int sockfd)
 
     // Cleanup after loop
     pthread_attr_destroy(&attr);
+    return ret_val;
 }
 
 void *handle_client(void *arg)
 {
-    char *message, *client_ipstr;
-    int client_port, client_sockfd;
+    char message[DEFAULT_BUFFER_SIZE];
+    ssize_t recv_val;
     Simple_Packet *send_packet, *recv_packet;
     Client_Data *client_data;
 
-    if (malloc_string(&message, DEFAULT_BUFFER_SIZE) != 0)
+    if (arg == NULL)
     {
-        exit(EXIT_FAILURE);
+        return;
     }
 
-    client_data = (ClientData *)arg;
-    client_sockfd = client_data->client_sockfd;
-    client_ipstr = client_data->client_ipstr;
-    client_port = client_data->client_port;
+    client_data = (Client_Data *)arg;
 
-    printf("Thread cliente (%s:%d): comienzo\n", client_ipstr, client_port);
+    printf("Thread cliente (%s:%d): comienzo\n", client_data->client_ipstr, client_data->client_port);
 
     simulate_work();
 
     // send initial server message
     strcpy(message, "Hola, soy el server");
-    if (create_simple_packet(&send_packet, message) < 0)
+    if ((send_packet = create_simple_packet(message)) == NULL)
     {
         fprintf(stderr, "Error al crear packet\n");
-        free(message);
-        exit(EXIT_FAILURE);
+        return;
     }
-    if (send_simple_packet(client_sockfd, send_packet) < 0)
+    if (send_simple_packet(client_data->client_sockfd, send_packet) < 0)
     {
         fprintf(stderr, "Error al enviar packet\n");
         free_simple_packet(send_packet);
-        free(message);
-        exit(EXIT_FAILURE);
+        return;
     }
     printf("server: mensaje enviado: \"%s\"\n", send_packet->data);
     free_simple_packet(send_packet);
     // receive initial message from client
-    if (recv_simple_packet(client_sockfd, &recv_packet) < 0)
+    recv_val = recv_simple_packet(client_data->client_sockfd, &recv_packet);
+    if (recv_val == 0)
+    {
+        fprintf(stderr, "Conexión cerrada antes de recibir packet\n");
+        free_simple_packet(recv_packet);
+        return;
+    }
+    else if (recv_val < 0)
     {
         fprintf(stderr, "Error al recibir packet\n");
         free_simple_packet(recv_packet);
-        free(message);
-        exit(EXIT_FAILURE);
+        return;
     }
     printf("server: mensaje recibido: \"%s\"\n", recv_packet->data);
     // send PONG message
@@ -287,31 +310,26 @@ void *handle_client(void *arg)
         free_simple_packet(recv_packet);
         puts("server: el mensaje contiene \"PING\"");
         strcpy(message, "PONG");
-        if (create_simple_packet(&send_packet, message) < 0)
+        if ((send_packet = create_simple_packet(message)) == NULL)
         {
             fprintf(stderr, "Error al crear packet\n");
-            free(message);
-            exit(EXIT_FAILURE);
+            return;
         }
-        if (send_simple_packet(client_sockfd, send_packet) < 0)
+        if (send_simple_packet(client_data->client_sockfd, send_packet) < 0)
         {
             fprintf(stderr, "Error al enviar packet\n");
             free_simple_packet(send_packet);
-            free(message);
-            exit(EXIT_FAILURE);
+            return;
         }
         printf("server: mensaje enviado: \"%s\"\n", send_packet->data);
         free_simple_packet(send_packet);
     }
 
     // Print completion message
-    printf("Thread cliente (%s:%d): finalizado\n", client_ipstr, client_port);
+    printf("Thread cliente (%s:%d): finalizado\n", client_data->client_ipstr, client_data->client_port);
 
-    close(client_sockfd);
+    close(client_data->client_sockfd);
     free(client_data);
-    free(message);
-
-    return NULL;
 }
 
 Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port)
