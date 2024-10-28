@@ -51,6 +51,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    close(sockfd);
     puts("client: finalizando");
     return EXIT_SUCCESS;
 }
@@ -257,7 +258,7 @@ int handle_connection(int sockfd)
         return -1;
     }
     printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
+
     free_simple_packet(recv_packet);
-    close(sockfd);
     return 0;
 }

@@ -51,6 +51,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    close(sockfd);
     puts("udp_client: finalizando");
     return EXIT_SUCCESS;
 }
@@ -255,8 +256,6 @@ int handle_connection(int sockfd)
         }
     }
 
-    // Clean up
-    close(sockfd);
     return ret_value;
 }
 
