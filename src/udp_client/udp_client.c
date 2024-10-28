@@ -20,7 +20,7 @@
 #include "../shared/common.h"
 
 // Project header
-#include "client.h"
+#include "udp_client.h"
 
 int main(int argc, char *argv[])
 {
@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
     {
         return EXIT_FAILURE;
     }
-    sockfd = setup_client(port_number, ip_number);
+    sockfd = setup_udp_client(port_number, ip_number);
     if (sockfd <= 0)
     {
         return EXIT_FAILURE;
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    puts("client: finalizando");
+    puts("udp_client: finalizando");
     return EXIT_SUCCESS;
 }
 
@@ -88,7 +88,7 @@ int parse_arguments(int argc, char *argv[], char *port_number, char *ip_number)
             }
             else
             {
-                printf("client: opción o argumento no soportado: %s\n", argv[i]);
+                printf("udp_client: opción o argumento no soportado: %s\n", argv[i]);
                 show_help();
                 ret_val = -1;
                 break;
@@ -100,7 +100,7 @@ int parse_arguments(int argc, char *argv[], char *port_number, char *ip_number)
 
 void show_help()
 {
-    puts("Uso: client [opciones]");
+    puts("Uso: udp_client [opciones]");
     puts("Opciones:");
     puts("  --help      Muestra este mensaje de ayuda");
     puts("  --version   Muestra version del programa");
@@ -110,10 +110,10 @@ void show_help()
 
 void show_version()
 {
-    printf("Client Version %s\n", VERSION);
+    printf("UDP Client Version %s\n", VERSION);
 }
 
-int setup_client(char *port_number, char *ip_number)
+int setup_udp_client(char *port_number, char *ip_number)
 {
     int gai_ret_val, local_port, sockfd;
     char local_ip[INET_ADDRSTRLEN], their_ipstr[INET_ADDRSTRLEN];
@@ -128,15 +128,15 @@ int setup_client(char *port_number, char *ip_number)
     // Setup addinfo
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET; // AF_INET to force version IPv4
-    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_socktype = SOCK_DGRAM;
 
     if ((gai_ret_val = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
     {
-        fprintf(stderr, "client: getaddrinfo: %s\n", gai_strerror(gai_ret_val));
+        fprintf(stderr, "udp_client: getaddrinfo: %s\n", gai_strerror(gai_ret_val));
         return -1;
     }
 
-    puts("client: direcciones resueltas");
+    puts("udp_client: direcciones resueltas");
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
         ipv4 = (struct sockaddr_in *)p->ai_addr;
@@ -153,14 +153,7 @@ int setup_client(char *port_number, char *ip_number)
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
                              p->ai_protocol)) == -1)
         {
-            perror("client: socket");
-            continue;
-        }
-
-        if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1)
-        {
-            close(sockfd);
-            perror("client: connect");
+            perror("udp_client: socket");
             continue;
         }
 
@@ -172,7 +165,7 @@ int setup_client(char *port_number, char *ip_number)
 
     if (p == NULL)
     {
-        fprintf(stderr, "client: no pudo realizarse el connect\n");
+        fprintf(stderr, "udp_client: no pudo obtenerse un file descriptor\n");
         return -1;
     }
 
@@ -181,83 +174,109 @@ int setup_client(char *port_number, char *ip_number)
     their_addr = &(ipv4->sin_addr);
     inet_ntop(p->ai_family, their_addr, their_ipstr, sizeof(their_ipstr));
 
-    printf("client: conectado a %s:%s\n", their_ipstr, port_number);
+    printf("udp_client: dirección destino %s:%s\n", their_ipstr, port_number);
 
-    // Show client ip and port
+    // Show udp_client ip and port
     local_addr_len = sizeof(struct sockaddr_in);
     // Returns the current address to which the socket sockfd is bound
     getsockname(sockfd, (struct sockaddr *)&local_addr, &local_addr_len);
     inet_ntop(local_addr.sin_family, &local_addr.sin_addr, local_ip, sizeof(local_ip));
     local_port = ntohs(local_addr.sin_port);
 
-    printf("client: dirección local %s:%d\n", local_ip, local_port);
+    printf("udp_client: dirección local %s:%d\n", local_ip, local_port);
 
     return sockfd;
 }
 
 int handle_connection(int sockfd)
 {
-    char message[DEFAULT_BUFFER_SIZE];
-    ssize_t recv_val;
-    Simple_Packet *send_packet, *recv_packet;
+    int retries, ret_value;
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t addr_len = sizeof(struct sockaddr_in);
+    Udp_Packet *send_packet, *recv_packet;
+    ssize_t bytes_sent, bytes_received;
 
-    send_packet = NULL;
-    recv_packet = NULL;
+    retries = 0;
+    ret_value = 0;
 
-    if (sockfd <= 0)
+    // Loop to send packet and wait for response, retry if necessary
+    while (1)
     {
-        return -1;
+        // Create a UDP packet
+        send_packet = create_udp_packet("HEARTBEAT");
+        if (send_packet == NULL)
+        {
+            ret_value = -1;
+            break;
+        }
+
+        bytes_sent = send_udp_packet(sockfd, send_packet, (struct sockaddr *)&server_addr, addr_len);
+        if (bytes_sent < 0)
+        {
+            free_udp_packet(send_packet);
+            ret_value = -1;
+            break;
+        }
+        printf("udp_client: mensaje enviado: %s - %ld\n", send_packet->message, send_packet->timestamp);
+        free_udp_packet(send_packet);
+
+        if (set_udp_timeout(sockfd, UDP_TIMEOUT_SEC) < 0)
+        {
+            ret_value = -1;
+            break;
+        }
+
+        // Allocate memory for recv_packet
+        recv_packet = (Udp_Packet *)malloc(sizeof(Udp_Packet));
+        if (recv_packet == NULL)
+        {
+            perror("Error allocating memory for recv_packet");
+            ret_value = -1;
+            break;
+        }
+        bytes_received = recv_udp_packet(sockfd, recv_packet, (struct sockaddr *)&client_addr, &addr_len);
+
+        if (bytes_received > 0 && strcmp(recv_packet->message, "ACK") == 0)
+        {
+            printf("udp_client: mensaje recibido: %s - %ld\n", recv_packet->message, recv_packet->timestamp);
+            free_udp_packet(recv_packet);
+            retries = 0; // Reset retries on successful response
+        }
+        else
+        {
+            retries++;
+            if (retries >= UDP_MAX_RETRIES)
+            {
+                printf("udp_client: no hubo respuesta luego de %d intentos. Finalizando...\n", UDP_MAX_RETRIES);
+                ret_value = -1;
+                break;
+            }
+            printf("udp_client: no hubo respuesta. Reintentando...\n");
+        }
     }
 
-    // receive initial message from server
-    recv_val = recv_simple_packet(sockfd, &recv_packet);
-    if (recv_val == 0)
-    {
-        fprintf(stderr, "client: conexión cerrada antes de recibir packet\n");
-        free_simple_packet(recv_packet);
-        return 0;
-    }
-    else if (recv_val < 0)
-    {
-        fprintf(stderr, "client: error al recibir packet\n");
-        free_simple_packet(recv_packet);
-        return -1;
-    }
-
-    printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
-    free_simple_packet(recv_packet);
-
-    // send PING message
-    strcpy(message, "PING");
-    if ((send_packet = create_simple_packet(message)) == NULL)
-    {
-        fprintf(stderr, "client: error al crear packet\n");
-        return -1;
-    }
-    if (send_simple_packet(sockfd, send_packet) < 0)
-    {
-        fprintf(stderr, "client: error al enviar packet\n");
-        free_simple_packet(send_packet);
-        return -1;
-    }
-    printf("client: mensaje enviado: \"%s\"\n", send_packet->data);
-    free_simple_packet(send_packet);
-    // receive responmse message from server
-    recv_val = recv_simple_packet(sockfd, &recv_packet);
-    if (recv_val == 0)
-    {
-        fprintf(stderr, "client: conexión cerrada antes de recibir packet\n");
-        free_simple_packet(recv_packet);
-        return 0;
-    }
-    else if (recv_val < 0)
-    {
-        fprintf(stderr, "client: error al recibir packet\n");
-        free_simple_packet(recv_packet);
-        return -1;
-    }
-    printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
-    free_simple_packet(recv_packet);
+    // Clean up
     close(sockfd);
+    return ret_value;
+}
+
+// Set timeout for receive
+// configures the socket to wait only a specified amount of time (in this case, 5 seconds)
+// for data to be received. If no data is received within that timeframe,
+// the recvfrom function will return an error
+int set_udp_timeout(int sockfd, time_t timeout_sec)
+{
+    int result;
+    struct timeval tv;
+
+    tv.tv_sec = timeout_sec;
+    tv.tv_usec = 0;
+
+    result = setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    if (result < 0)
+    {
+        perror("udp_client: error configurando opción del socket");
+        return -1;
+    }
     return 0;
 }

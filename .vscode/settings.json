@@ -42,6 +42,8 @@
     "utility": "c",
     "__locale": "c",
     "stdarg.h": "c",
-    "pthread.h": "c"
+    "pthread.h": "c",
+    "errno.h": "c",
+    "compare": "c"
   }
 }

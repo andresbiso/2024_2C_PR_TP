@@ -155,7 +155,7 @@ Simple_Packet *create_simple_packet(const char *data)
     return packet;
 }
 
-Simple_Packet *create_packet_with_length(int32_t length)
+Simple_Packet *create_simple_packet_with_length(int32_t length)
 {
     Simple_Packet *packet;
 
@@ -258,7 +258,7 @@ ssize_t recv_simple_packet(int sockfd, Simple_Packet **packet)
     unpack(net_length, "l", &length); // Convert from network byte order to host byte order
 
     // Allocate and initialize the packet
-    *packet = create_packet_with_length(length);
+    *packet = create_simple_packet_with_length(length);
     if (*packet == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
@@ -281,6 +281,63 @@ ssize_t recv_simple_packet(int sockfd, Simple_Packet **packet)
     (*packet)->data[length] = '\0'; // Null-terminate the string
 
     return recv_bytes;
+}
+
+Udp_Packet *create_udp_packet(const char *message)
+{
+    Udp_Packet *packet;
+
+    packet = (Udp_Packet *)malloc(sizeof(Udp_Packet));
+    if (packet == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        return NULL;
+    }
+    strcpy(packet->message, message);
+    packet->timestamp = time(NULL);
+    return packet;
+}
+
+int free_udp_packet(Udp_Packet *packet)
+{
+    if (packet == NULL)
+    {
+        return -1; // Error: Packet is NULL
+    }
+    free(packet); // Free the packet struct itself
+    return 0;     // Success
+}
+
+ssize_t send_udp_packet(int sockfd, Udp_Packet *packet, const struct sockaddr *dest_addr, socklen_t addrlen)
+{
+    ssize_t bytes_sent;
+
+    // Send the actual packet data
+    bytes_sent = sendto(sockfd, packet, sizeof(Udp_Packet), 0, dest_addr, addrlen);
+    if (bytes_sent < 0)
+    {
+        fprintf(stderr, "Error al intentar enviar udp packet: %s\n", strerror(errno));
+        return -1;
+    }
+
+    printf("Total enviado: %ld bytes\n", bytes_sent);
+    return bytes_sent;
+}
+
+ssize_t recv_udp_packet(int sockfd, Udp_Packet *packet, struct sockaddr *src_addr, socklen_t *addrlen)
+{
+    ssize_t bytes_received;
+
+    // Receive the actual packet data
+    bytes_received = recvfrom(sockfd, packet, sizeof(Udp_Packet), 0, src_addr, addrlen);
+    if (bytes_received < 0)
+    {
+        fprintf(stderr, "Error al intentar recibir udp packet: %s\n", strerror(errno));
+        return -1;
+    }
+
+    printf("Total recibido: %ld bytes\n", bytes_received);
+    return bytes_received;
 }
 
 void simulate_work()

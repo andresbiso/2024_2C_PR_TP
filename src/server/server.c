@@ -584,6 +584,6 @@ void setup_signals()
 
 void handle_sigint(int sig)
 {
-    puts("Ctrl+C pressed. Exiting...");
+    puts("Ctrl+C presionado. Finalizando...");
     stop = 1;
 }
