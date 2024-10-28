@@ -318,7 +318,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
     pthread_attr_t attr;
     struct sockaddr their_addr; // connector's address information
     socklen_t sin_size;
-    Client_Data **clients;
+    Client_Tcp_Data **clients;
     Thread_Result *thread_result;
 
     ret_val = 0;
@@ -333,7 +333,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
     FD_SET(sockfd_udp, &master);
     max_fd = sockfd_tcp > sockfd_udp ? sockfd_tcp : sockfd_udp;
 
-    clients = init_clients(MAX_CLIENTS);
+    clients = init_clients_tcp_data(MAX_CLIENTS);
     if (clients == NULL)
     {
         return -1;
@@ -392,8 +392,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
                               sizeof(their_ipstr));
                     their_port = ((struct sockaddr_in *)&their_addr)->sin_port;
 
-                    clients[new_fd] = create_client_data(new_fd, their_ipstr, their_port);
-                    if (clients[new_fd] == NULL)
+                    if (create_client_tcp_data(clients[new_fd], new_fd, their_ipstr, their_port) < 0)
                     {
                         ret_val = -1;
                         FD_CLR(new_fd, &master);
@@ -581,7 +580,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
 void *handle_client_tcp_read(void *arg)
 {
     ssize_t recv_val;
-    Client_Data *client_data;
+    Client_Tcp_Data *client_data;
     Thread_Result *thread_result;
 
     if (arg == NULL)
@@ -589,7 +588,7 @@ void *handle_client_tcp_read(void *arg)
         return NULL;
     }
 
-    client_data = (Client_Data *)arg;
+    client_data = (Client_Tcp_Data *)arg;
     thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
     if (thread_result == NULL)
     {
@@ -637,7 +636,7 @@ void *handle_client_tcp_read(void *arg)
 void *handle_client_tcp_write(void *arg)
 {
     char message[DEFAULT_BUFFER_SIZE];
-    Client_Data *client_data;
+    Client_Tcp_Data *client_data;
     Thread_Result *thread_result;
 
     if (arg == NULL)
@@ -645,7 +644,7 @@ void *handle_client_tcp_write(void *arg)
         return NULL;
     }
 
-    client_data = (Client_Data *)arg;
+    client_data = (Client_Tcp_Data *)arg;
     thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
     if (thread_result == NULL)
     {
@@ -708,7 +707,7 @@ void *handle_client_tcp_write(void *arg)
 
 void *handle_client_udp_read(void *arg)
 {
-    Client_Data *client_data = (Client_Data *)arg;
+    Client_Tcp_Data *client_data = (Client_Tcp_Data *)arg;
     struct sockaddr_in client_addr;
     socklen_t addr_len = sizeof(client_addr);
     char buffer[UDP_BUF_SIZE];
@@ -730,7 +729,7 @@ void *handle_client_udp_read(void *arg)
 
 void *handle_client_udp_write(void *arg)
 {
-    Client_Data *client_data = (Client_Data *)arg;
+    Client_Tcp_Data *client_data = (Client_Tcp_Data *)arg;
     struct sockaddr_in client_addr;
     socklen_t addr_len = sizeof(client_addr);
     char message[UDP_BUF_SIZE];
@@ -751,46 +750,36 @@ void *handle_client_udp_write(void *arg)
     }
 }
 
-Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port)
+int create_client_tcp_data(Client_Tcp_Data *data, int sockfd, const char *ipstr, in_port_t port)
 {
-    Client_Data *data;
-
-    if (sockfd <= 0 || ipstr == NULL || port <= 0)
+    if (data == NULL || sockfd <= 0 || ipstr == NULL || port <= 0)
     {
-        return NULL;
+        return -1;
     }
 
-    data = (Client_Data *)malloc(sizeof(Client_Data));
-    if (data == NULL)
-    {
-        fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
-        return NULL; // Memory allocation failed
-    }
     // Initialize allocated memory to zero
-    memset(data, 0, sizeof(Client_Data));
-
     data->client_sockfd = sockfd;
     strcpy(data->client_ipstr, ipstr);
     data->client_port = port;
     data->packet = NULL;
 
-    return data;
+    return 0;
 }
 
-Client_Data **init_clients(int len)
+Client_Tcp_Data **init_clients_tcp_data(int len)
 {
-    Client_Data **clients;
-    clients = (Client_Data **)malloc(len * sizeof(Client_Data *));
+    Client_Tcp_Data **clients;
+    clients = (Client_Tcp_Data **)malloc(len * sizeof(Client_Tcp_Data *));
     if (clients == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
         return NULL;
     }
-    memset(clients, 0, len * sizeof(Client_Data *));
+    memset(clients, 0, len * sizeof(Client_Tcp_Data *));
     return clients;
 }
 
-void cleanup_clients(Client_Data **clients, int len)
+void cleanup_clients_tcp_data(Client_Tcp_Data **clients, int len)
 {
     for (int i = 0; i < len; i++)
     {
@@ -798,7 +787,7 @@ void cleanup_clients(Client_Data **clients, int len)
     }
 }
 
-void cleanup_client(Client_Data **client)
+void cleanup_client_tcp_data(Client_Tcp_Data **client)
 {
     if (*client != NULL)
     {

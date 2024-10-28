@@ -28,7 +28,7 @@ typedef struct
     char client_ipstr[INET_ADDRSTRLEN];
     in_port_t client_port;
     Simple_Packet *packet;
-} Client_Data;
+} Client_Tcp_Data;
 
 typedef struct
 {
@@ -36,7 +36,7 @@ typedef struct
     char client_ipstr[INET_ADDRSTRLEN];
     in_port_t client_port;
     Udp_Packet *packet;
-} Client_Data_UDP;
+} Client_Udp_Data;
 
 typedef struct
 {
@@ -54,10 +54,13 @@ int setup_server_tcp(char *ip_number, char *port_number);
 int setup_server_udp(char *ip_number, char *port_number);
 void show_help(void);
 void show_version(void);
-Client_Data *create_client_data(int sockfd, const char *ipstr, in_port_t port);
-Client_Data **init_clients(int len);
-void cleanup_clients(Client_Data **clients, int len);
-void cleanup_client(Client_Data **client);
+int create_client_tcp_data(Client_Tcp_Data *data, int sockfd, const char *ipstr, in_port_t port);
+Client_Tcp_Data **init_clients_tcp_data(int len);
+void cleanup_clients_tcp_data(Client_Tcp_Data **clients, int len);
+void cleanup_client_tcp_data(Client_Tcp_Data **client);
+int create_client_udp_data(Client_Udp_Data *data, int sockfd, const char *ipstr, in_port_t port);
+Client_Udp_Data *init_client_udp_data(int len);
+void cleanup_client_udp_data(Client_Udp_Data *client);
 void setup_signals();
 void handle_sigint(int sig);
 
