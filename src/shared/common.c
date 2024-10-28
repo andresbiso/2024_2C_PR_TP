@@ -23,7 +23,7 @@ char *allocate_string(const char *source)
     size_t len;
 
     len = strlen(source) + 1; // +1 for the null terminator
-    str = (char *)malloc(len);
+    str = (char *)malloc(len * sizeof(char));
     if (str == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
@@ -283,11 +283,11 @@ ssize_t recv_simple_packet(int sockfd, Simple_Packet **packet)
     return recv_bytes;
 }
 
-Udp_Packet *create_udp_packet(const char *message)
+Heartbeat_Packet *create_heartbeat_packet(const char *message)
 {
-    Udp_Packet *packet;
+    Heartbeat_Packet *packet;
 
-    packet = (Udp_Packet *)malloc(sizeof(Udp_Packet));
+    packet = (Heartbeat_Packet *)malloc(sizeof(Heartbeat_Packet));
     if (packet == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
@@ -298,7 +298,7 @@ Udp_Packet *create_udp_packet(const char *message)
     return packet;
 }
 
-int free_udp_packet(Udp_Packet *packet)
+int free_heartbeat_packet(Heartbeat_Packet *packet)
 {
     if (packet == NULL)
     {
@@ -308,15 +308,15 @@ int free_udp_packet(Udp_Packet *packet)
     return 0;     // Success
 }
 
-ssize_t send_udp_packet(int sockfd, Udp_Packet *packet, const struct sockaddr *dest_addr, socklen_t addrlen)
+ssize_t send_heartbeat_packet(int sockfd, Heartbeat_Packet *packet, const struct sockaddr *dest_addr, socklen_t addrlen)
 {
     ssize_t bytes_sent;
 
     // Send the actual packet data
-    bytes_sent = sendto(sockfd, packet, sizeof(Udp_Packet), 0, dest_addr, addrlen);
+    bytes_sent = sendto(sockfd, packet, sizeof(Heartbeat_Packet), 0, dest_addr, addrlen);
     if (bytes_sent < 0)
     {
-        fprintf(stderr, "Error al intentar enviar udp packet: %s\n", strerror(errno));
+        fprintf(stderr, "Error al intentar enviar heartbeat packet: %s\n", strerror(errno));
         return -1;
     }
 
@@ -324,15 +324,15 @@ ssize_t send_udp_packet(int sockfd, Udp_Packet *packet, const struct sockaddr *d
     return bytes_sent;
 }
 
-ssize_t recv_udp_packet(int sockfd, Udp_Packet *packet, struct sockaddr *src_addr, socklen_t *addrlen)
+ssize_t recv_heartbeat_packet(int sockfd, Heartbeat_Packet *packet, struct sockaddr *src_addr, socklen_t *addrlen)
 {
     ssize_t bytes_received;
 
     // Receive the actual packet data
-    bytes_received = recvfrom(sockfd, packet, sizeof(Udp_Packet), 0, src_addr, addrlen);
+    bytes_received = recvfrom(sockfd, packet, sizeof(Heartbeat_Packet), 0, src_addr, addrlen);
     if (bytes_received < 0)
     {
-        fprintf(stderr, "Error al intentar recibir udp packet: %s\n", strerror(errno));
+        fprintf(stderr, "Error al intentar recibir heartbeat packet: %s\n", strerror(errno));
         return -1;
     }
 

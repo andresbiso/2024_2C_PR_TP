@@ -1,3 +1,13 @@
+1. udp functions
+2. udp threads
+3. create packet, use packet, verify it is getting updated, free packet.
+4. create testmode by default is false. It toggles between the old mode and the new http inside the tcp threads.
+Or maybe I can change the thread creation and add a thread specific for http. That would let me handle it better (?).
+In theory it should be the same but I send a message directly and receive directly without getting the length first.
+Get request -> understand request, find resource, check resource type, create headers
+Send Response -> we send headers first and then we do a second send where we do a sendfile.
+It is really important to handle the file with locking mechanism.
+
 Heartbeat example
 
 Servidor

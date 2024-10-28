@@ -24,7 +24,7 @@
 #include "server.h"
 
 volatile sig_atomic_t stop;
-pthread_mutex_t lock;
+// pthread_mutex_t lock;
 
 int main(int argc, char *argv[])
 {
@@ -36,11 +36,11 @@ int main(int argc, char *argv[])
     strcpy(port_number_tcp, DEFAULT_PORT_TCP);
     strcpy(port_number_udp, DEFAULT_PORT_UDP);
 
-    if (pthread_mutex_init(&lock, NULL) != 0)
-    {
-        perror("server: error en mutex init\n");
-        return EXIT_FAILURE;
-    }
+    // if (pthread_mutex_init(&lock, NULL) != 0)
+    // {
+    //     perror("server: error en mutex init\n");
+    //     return EXIT_FAILURE;
+    // }
 
     ret_val = parse_arguments(argc, argv, ip_number, port_number_tcp, port_number_udp);
     if (ret_val > 0)
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 
     close(sockfd_tcp);
     close(sockfd_udp);
-    pthread_mutex_destroy(&lock);
+    // pthread_mutex_destroy(&lock);
     puts("server: finalizando");
     return EXIT_SUCCESS;
 }
@@ -406,7 +406,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
                 else if (i == sockfd_tcp)
                 {
                     // handle read
-                    if (pthread_create(&thread, &attr, handle_client_udp_read, (void *)clients[i]) != 0)
+                    if (pthread_create(&thread, &attr, handle_client_heartbeat_read, (void *)clients[i]) != 0)
                     {
                         perror("server: pthread_create");
                         ret_val = -1;
@@ -440,7 +440,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
                 else
                 {
                     // handle read
-                    if (pthread_create(&thread, &attr, handle_client_tcp_read, (void *)clients[i]) != 0)
+                    if (pthread_create(&thread, &attr, handle_client_simple_read, (void *)clients[i]) != 0)
                     {
                         perror("server: pthread_create");
                         ret_val = -1;
@@ -482,7 +482,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
                 if (i == sockfd_tcp)
                 {
                     // handle write
-                    if (pthread_create(&thread, &attr, handle_client_udp_write, (void *)clients[i]) != 0)
+                    if (pthread_create(&thread, &attr, handle_client_heartbeat_write, (void *)clients[i]) != 0)
                     {
                         perror("server: pthread_create");
                         ret_val = -1;
@@ -516,7 +516,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
                 else
                 {
                     // handle write
-                    if (pthread_create(&thread, &attr, handle_client_tcp_write, (void *)clients[i]) != 0)
+                    if (pthread_create(&thread, &attr, handle_client_simple_write, (void *)clients[i]) != 0)
                     {
                         perror("server: pthread_create");
                         ret_val = -1;
@@ -577,7 +577,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
     return ret_val;
 }
 
-void *handle_client_tcp_read(void *arg)
+void *handle_client_simple_read(void *arg)
 {
     ssize_t recv_val;
     Client_Tcp_Data *client_data;
@@ -633,7 +633,7 @@ void *handle_client_tcp_read(void *arg)
     pthread_exit((void *)thread_result);
 }
 
-void *handle_client_tcp_write(void *arg)
+void *handle_client_simple_write(void *arg)
 {
     char message[DEFAULT_BUFFER_SIZE];
     Client_Tcp_Data *client_data;
@@ -705,49 +705,84 @@ void *handle_client_tcp_write(void *arg)
     pthread_exit((void *)thread_result);
 }
 
-void *handle_client_udp_read(void *arg)
+void *handle_client_heartbeat_read(void *arg)
 {
-    Client_Tcp_Data *client_data = (Client_Tcp_Data *)arg;
-    struct sockaddr_in client_addr;
-    socklen_t addr_len = sizeof(client_addr);
-    char buffer[UDP_BUF_SIZE];
+    // Client_Tcp_Data *client_data = (Client_Tcp_Data *)arg;
+    // struct sockaddr_in client_addr;
+    // socklen_t addr_len = sizeof(client_addr);
+    // char buffer[UDP_BUF_SIZE];
 
-    while (1)
-    {
-        int len = recvfrom(client_data->client_sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, &addr_len);
-        if (len > 0)
-        {
-            buffer[len] = '\0';
-            pthread_mutex_lock(&lock);
-            strncpy(client_data->packet.message, buffer, UDP_BUF_SIZE);
-            client_data->packet.timestamp = time(NULL);
-            pthread_mutex_unlock(&lock);
-            printf("Received: %s\n", client_data->packet.message);
-        }
-    }
+    // while (1)
+    // {
+    //     int len = recvfrom(client_data->client_sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, &addr_len);
+    //     if (len > 0)
+    //     {
+    //         buffer[len] = '\0';
+    //         pthread_mutex_lock(&lock);
+    //         strncpy(client_data->packet.message, buffer, UDP_BUF_SIZE);
+    //         client_data->packet.timestamp = time(NULL);
+    //         pthread_mutex_unlock(&lock);
+    //         printf("Received: %s\n", client_data->packet.message);
+    //     }
+    // }
 }
 
-void *handle_client_udp_write(void *arg)
+void *handle_client_heartbeat_write(void *arg)
 {
-    Client_Tcp_Data *client_data = (Client_Tcp_Data *)arg;
-    struct sockaddr_in client_addr;
-    socklen_t addr_len = sizeof(client_addr);
-    char message[UDP_BUF_SIZE];
+    char message[DEFAULT_BUFFER_SIZE];
+    Client_Udp_Data *client_data;
+    Thread_Result *thread_result;
+    struct sockaddr *dest_addr;
+    socklen_t socklen;
 
-    while (1)
+    //  struct sockaddr_in server_addr;
+    // char buffer[BUF_SIZE];
+    // socklen_t addr_len = sizeof(server_addr);
+
+    if (arg == NULL)
     {
-        pthread_mutex_lock(&lock);
-        strncpy(message, client_data->packet.message, UDP_BUF_SIZE);
-        pthread_mutex_unlock(&lock);
-
-        if (strlen(message) > 0)
-        {
-            sendto(client_data->client_sockfd, message, strlen(message), 0, (struct sockaddr *)&client_addr, addr_len);
-        }
-
-        // Just a small delay to prevent spamming
-        sleep(1);
+        return NULL;
     }
+
+    client_data = (Client_Udp_Data *)arg;
+    thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
+    if (thread_result == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        return NULL;
+    }
+
+    printf("Thread cliente (%s:%d): escritura comienzo\n", client_data->client_ipstr, client_data->client_port);
+
+    simulate_work();
+    // send PONG message
+    if (client_data->packet != NULL && strstr(client_data->packet->message, "HEARTBEAT") != NULL)
+    {
+        puts("server: el mensaje contiene \"HEARTBEAT\"");
+        free_heartbeat_packet(client_data->packet);
+        strcpy(message, "ACK");
+        if ((client_data->packet = create_heartbeat_packet(message)) == NULL)
+        {
+            fprintf(stderr, "server: error al crear packet\n");
+            thread_result->value = THREAD_RESULT_ERROR;
+            pthread_exit((void *)thread_result);
+        }
+        if (send_heartbeat_packet(client_data->client_sockfd, client_data->packet, dest_addr, ) < 0)
+        {
+            fprintf(stderr, "server: error al enviar packet\n");
+            free_heartbeat_packet(client_data->packet);
+            client_data->packet = NULL;
+            thread_result->value = THREAD_RESULT_ERROR;
+            pthread_exit((void *)thread_result);
+        }
+        printf("server: mensaje heartbeat enviado: \"%s\" - \"%ld\" \n", client_data->packet->message, client_data->packet->timestamp);
+    }
+
+    // Print completion message
+    printf("Thread cliente (%s:%d): escritura fin\n", client_data->client_ipstr, client_data->client_port);
+
+    thread_result->value = THREAD_RESULT_SUCCESS;
+    pthread_exit((void *)thread_result);
 }
 
 int create_client_tcp_data(Client_Tcp_Data *data, int sockfd, const char *ipstr, in_port_t port)
@@ -793,6 +828,44 @@ void cleanup_client_tcp_data(Client_Tcp_Data **client)
     {
         free(*client);
         *client = NULL;
+    }
+}
+
+int create_client_udp_data(Client_Udp_Data *data, int sockfd, const char *ipstr, in_port_t port)
+{
+    if (data == NULL || sockfd <= 0 || ipstr == NULL || port <= 0)
+    {
+        return -1;
+    }
+
+    // Initialize allocated memory to zero
+    data->client_sockfd = sockfd;
+    strcpy(data->client_ipstr, ipstr);
+    data->client_port = port;
+    data->packet = NULL;
+
+    return 0;
+}
+
+Client_Udp_Data *init_client_udp_data()
+{
+    Client_Udp_Data *client;
+    client = (Client_Udp_Data *)malloc(sizeof(Client_Udp_Data *));
+    if (client == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        return NULL;
+    }
+    memset(client, 0, sizeof(Client_Tcp_Data *));
+    return client;
+}
+
+void cleanup_client_udp_data(Client_Udp_Data *client)
+{
+    if (client != NULL)
+    {
+        free(client);
+        client = NULL;
     }
 }
 
