@@ -8,6 +8,9 @@
 // System headers
 #include <sys/types.h>
 
+// Shared headers
+#include "../shared/common.h"
+
 // Constants
 #define DEFAULT_IP "127.0.0.1" // The ip heartbeat_client will be connecting to
 #define DEFAULT_PORT "3490"    // The port heartbeat_client will be connecting to
@@ -15,9 +18,9 @@
 #define VERSION "0.0.1"
 
 // Function prototypes
-int handle_connection(int sockfd);
+int handle_connection(Heartbeat_Data *heartbeat_data);
 int parse_arguments(int argc, char *argv[], char *port_number, char *ip_number);
-int setup_heartbeat_client(char *port_number, char *ip_number);
+Heartbeat_Data *setup_heartbeat_client(char *port_number, char *ip_number);
 void show_help(void);
 void show_version(void);
 int set_heartbeat_timeout(int sockfd, time_t timeout_sec);

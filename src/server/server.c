@@ -249,7 +249,7 @@ Heartbeat_Data *setup_server_udp(char *ip_number, char *port_number)
     if ((gai_ret_val = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
     {
         fprintf(stderr, "server: UDP getaddrinfo: %s\n", gai_strerror(gai_ret_val));
-        return -1;
+        return NULL;
     }
 
     puts("server: UDP direcciones resueltas");
@@ -297,7 +297,7 @@ Heartbeat_Data *setup_server_udp(char *ip_number, char *port_number)
     if (p == NULL)
     {
         fprintf(stderr, "server: UDP no pudo realizarse el bind\n");
-        return -1;
+        return NULL;
     }
 
     data = create_heartbeat_data(sockfd);
@@ -693,12 +693,10 @@ void *handle_client_simple_write(void *arg)
 
 void *handle_client_heartbeat_read(void *arg)
 {
-    char *client_ipstr;
-    socklen_t addrlen;
+    char client_ipstr[INET_ADDRSTRLEN];
     ssize_t recv_val;
-    struct sockaddr src_addr;
     struct sockaddr_in *client_ipv4;
-    struct sin_addr *client_addr;
+    struct in_addr *client_addr;
     Heartbeat_Data *heartbeat_data;
     Thread_Result *thread_result;
 
@@ -725,7 +723,7 @@ void *handle_client_heartbeat_read(void *arg)
     }
 
     // receive HEARTBEAT message from client
-    recv_val = recv_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, &heartbeat_data->addr, heartbeat_data->addrlen);
+    recv_val = recv_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, &heartbeat_data->addr, &heartbeat_data->addrlen);
     if (recv_val == 0)
     {
         fprintf(stderr, "server: conexión cerrada antes de recibir packet\n");
@@ -745,7 +743,7 @@ void *handle_client_heartbeat_read(void *arg)
     client_addr = &(client_ipv4->sin_addr);
     inet_ntop(client_ipv4->sin_family, client_addr, client_ipstr, sizeof(client_ipstr));
 
-    printf("server: mensaje del cliente: %s:%ld\n", client_ipstr, ntohs(client_ipv4->sin_port));
+    printf("server: mensaje del cliente: %s:%d\n", client_ipstr, ntohs(client_ipv4->sin_port));
     printf("server: mensaje recibido: %s - %ld\n", heartbeat_data->packet->message, heartbeat_data->packet->timestamp);
 
     // Print completion message
@@ -758,12 +756,9 @@ void *handle_client_heartbeat_read(void *arg)
 void *handle_client_heartbeat_write(void *arg)
 {
     char message[DEFAULT_BUFFER_SIZE];
-    char *client_ipstr;
-    socklen_t addrlen;
-    ssize_t recv_val;
-    struct sockaddr src_addr;
+    char client_ipstr[INET_ADDRSTRLEN];
     struct sockaddr_in *client_ipv4;
-    struct sin_addr *client_addr;
+    struct in_addr *client_addr;
     Heartbeat_Data *heartbeat_data;
     Thread_Result *thread_result;
 
@@ -790,7 +785,7 @@ void *handle_client_heartbeat_write(void *arg)
         puts("server: el mensaje contiene \"HEARTBEAT\"");
         free_heartbeat_packet(heartbeat_data->packet);
         strcpy(message, "ACK");
-        if ((heartbeat_data->packet = create_simple_packet(message)) == NULL)
+        if ((heartbeat_data->packet = create_heartbeat_packet(message)) == NULL)
         {
             fprintf(stderr, "server: error al crear packet\n");
             thread_result->value = THREAD_RESULT_ERROR;
@@ -807,7 +802,7 @@ void *handle_client_heartbeat_write(void *arg)
         client_addr = &(client_ipv4->sin_addr);
         inet_ntop(client_ipv4->sin_family, client_addr, client_ipstr, sizeof(client_ipstr));
 
-        printf("server: mensaje al cliente: %s:%ld\n", client_ipstr, ntohs(client_ipv4->sin_port));
+        printf("server: mensaje al cliente: %s:%d\n", client_ipstr, ntohs(client_ipv4->sin_port));
         printf("server: mensaje enviado: %s - %ld\n", heartbeat_data->packet->message, heartbeat_data->packet->timestamp);
     }
 

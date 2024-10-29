@@ -11,13 +11,13 @@ LDFLAGS = -lpthread
 DIST_DIR = dist
 
 # Define the output binary
-TARGET = $(DIST_DIR)/udp_client
+TARGET = $(DIST_DIR)/heartbeat_client
 
 # Define the source files
-SRCS = udp_client.c	../shared/common.c ../shared/pack.c
+SRCS = heartbeat_client.c	../shared/common.c ../shared/pack.c
 
 # Define the header files (for dependency tracking)
-HEADERS = udp_client.h ../shared/common.h ../shared/pack.h
+HEADERS = heartbeat_client.h ../shared/common.h ../shared/pack.h
 
 # Define the object files
 OBJS = $(SRCS:.c=.o)

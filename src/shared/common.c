@@ -351,7 +351,7 @@ Heartbeat_Data *create_heartbeat_data(int sockfd)
 {
     Heartbeat_Data *data;
 
-    if (sockfd == NULL)
+    if (sockfd < 0)
     {
         return NULL;
     }
@@ -362,7 +362,7 @@ Heartbeat_Data *create_heartbeat_data(int sockfd)
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
         return NULL;
     }
-    memset(data, 0, sizeof(Heartbeat_Data *));
+    memset(data, 0, sizeof(Heartbeat_Data));
 
     // Initialize allocated memory to zero
     data->sockfd = sockfd;

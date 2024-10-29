@@ -8,6 +8,9 @@
 // System headers
 #include <sys/types.h>
 
+// Shared headers
+#include "../shared/common.h"
+
 // Constants
 #define BACKLOG 10              // How many pending connections queue will hold
 #define DEFAULT_IP "127.0.0.1"  // The ip users will be connecting to
@@ -36,14 +39,14 @@ typedef struct
 } Thread_Result;
 
 // Function prototypes
-void *handle_client_simple_write(void *arg);
 void *handle_client_simple_read(void *arg);
-void *handle_client_heartbeat_write(void *arg);
+void *handle_client_simple_write(void *arg);
 void *handle_client_heartbeat_read(void *arg);
-int handle_connections(int sockfd_tcp, int sockfd_udp);
+void *handle_client_heartbeat_write(void *arg);
+int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data);
 int parse_arguments(int argc, char *argv[], char *ip_number, char *port_number_tcp, char *port_number_udp);
 int setup_server_tcp(char *ip_number, char *port_number);
-int setup_server_udp(char *ip_number, char *port_number);
+Heartbeat_Data *setup_server_udp(char *ip_number, char *port_number);
 void show_help(void);
 void show_version(void);
 int create_client_tcp_data(Client_Tcp_Data *data, int sockfd, const char *ipstr, in_port_t port);

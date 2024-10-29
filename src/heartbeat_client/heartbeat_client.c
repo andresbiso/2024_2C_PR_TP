@@ -135,7 +135,7 @@ Heartbeat_Data *setup_heartbeat_client(char *port_number, char *ip_number)
     if ((gai_ret_val = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
     {
         fprintf(stderr, "heartbeat_client: getaddrinfo: %s\n", gai_strerror(gai_ret_val));
-        return -1;
+        return NULL;
     }
 
     puts("heartbeat_client: direcciones resueltas");
@@ -168,7 +168,7 @@ Heartbeat_Data *setup_heartbeat_client(char *port_number, char *ip_number)
     if (p == NULL)
     {
         fprintf(stderr, "heartbeat_client: no pudo obtenerse un file descriptor\n");
-        return -1;
+        return NULL;
     }
 
     heartbeat_data = create_heartbeat_data(sockfd);
@@ -203,8 +203,6 @@ Heartbeat_Data *setup_heartbeat_client(char *port_number, char *ip_number)
 int handle_connection(Heartbeat_Data *heartbeat_data)
 {
     int retries, ret_value;
-    struct sockaddr_in server_addr, client_addr;
-    socklen_t addr_len = sizeof(struct sockaddr_in);
     ssize_t bytes_sent, bytes_received;
 
     retries = 0;
