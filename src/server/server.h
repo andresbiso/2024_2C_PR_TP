@@ -32,14 +32,6 @@ typedef struct
 
 typedef struct
 {
-    int client_sockfd;
-    char client_ipstr[INET_ADDRSTRLEN];
-    in_port_t client_port;
-    Heartbeat_Packet *packet;
-} Client_Udp_Data;
-
-typedef struct
-{
     int value; // THREAD_RESULT_* values
 } Thread_Result;
 
@@ -56,11 +48,8 @@ void show_help(void);
 void show_version(void);
 int create_client_tcp_data(Client_Tcp_Data *data, int sockfd, const char *ipstr, in_port_t port);
 Client_Tcp_Data **init_clients_tcp_data(int len);
-void cleanup_clients_tcp_data(Client_Tcp_Data **clients, int len);
-void cleanup_client_tcp_data(Client_Tcp_Data **client);
-int create_client_udp_data(Client_Udp_Data *data, int sockfd, const char *ipstr, in_port_t port);
-Client_Udp_Data *init_client_udp_data();
-void cleanup_client_udp_data(Client_Udp_Data *client);
+void free_clients_tcp_data(Client_Tcp_Data **clients, int len);
+void free_client_tcp_data(Client_Tcp_Data **client);
 void setup_signals();
 void handle_sigint(int sig);
 

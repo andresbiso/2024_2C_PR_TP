@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
 {
     char ip_number[INET_ADDRSTRLEN], port_number[PORTSTRLEN];
     int ret_val;
-    int sockfd; // listen on sock_fd
+    Heartbeat_Data *heartbeat_data;
 
     strcpy(ip_number, DEFAULT_IP);
     strcpy(port_number, DEFAULT_PORT);
@@ -40,18 +40,18 @@ int main(int argc, char *argv[])
     {
         return EXIT_FAILURE;
     }
-    sockfd = setup_heartbeat_client(port_number, ip_number);
-    if (sockfd <= 0)
+    heartbeat_data = setup_heartbeat_client(port_number, ip_number);
+    if (heartbeat_data == NULL)
     {
         return EXIT_FAILURE;
     }
-    ret_val = handle_connection(sockfd);
+    ret_val = handle_connection(heartbeat_data);
     if (ret_val < 0)
     {
         return EXIT_FAILURE;
     }
 
-    close(sockfd);
+    free_heartbeat_data(heartbeat_data);
     puts("heartbeat_client: finalizando");
     return EXIT_SUCCESS;
 }
@@ -114,7 +114,7 @@ void show_version()
     printf("Heartbeat Client Version %s\n", VERSION);
 }
 
-int setup_heartbeat_client(char *port_number, char *ip_number)
+Heartbeat_Data *setup_heartbeat_client(char *port_number, char *ip_number)
 {
     int gai_ret_val, local_port, sockfd;
     char local_ip[INET_ADDRSTRLEN], their_ipstr[INET_ADDRSTRLEN];
@@ -123,8 +123,9 @@ int setup_heartbeat_client(char *port_number, char *ip_number)
     struct in_addr *their_addr;
     socklen_t local_addr_len;
     struct addrinfo hints;
+    Heartbeat_Data *heartbeat_data;
 
-    sockfd = 0;
+    heartbeat_data = NULL;
 
     // Setup addinfo
     memset(&hints, 0, sizeof(hints));
@@ -170,12 +171,22 @@ int setup_heartbeat_client(char *port_number, char *ip_number)
         return -1;
     }
 
+    heartbeat_data = create_heartbeat_data(sockfd);
+    if (heartbeat_data == NULL)
+    {
+        return NULL;
+    }
+
     // Show server ip and port
     ipv4 = (struct sockaddr_in *)p->ai_addr;
     their_addr = &(ipv4->sin_addr);
     inet_ntop(p->ai_family, their_addr, their_ipstr, sizeof(their_ipstr));
 
     printf("heartbeat_client: dirección destino %s:%s\n", their_ipstr, port_number);
+
+    // Copy values into heartbeat_data
+    memcpy(&heartbeat_data->addr, &p->ai_addr, p->ai_addrlen);
+    heartbeat_data->addrlen = p->ai_addrlen;
 
     // Show heartbeat_client ip and port
     local_addr_len = sizeof(struct sockaddr_in);
@@ -186,15 +197,14 @@ int setup_heartbeat_client(char *port_number, char *ip_number)
 
     printf("heartbeat_client: dirección local %s:%d\n", local_ip, local_port);
 
-    return sockfd;
+    return heartbeat_data;
 }
 
-int handle_connection(int sockfd)
+int handle_connection(Heartbeat_Data *heartbeat_data)
 {
     int retries, ret_value;
     struct sockaddr_in server_addr, client_addr;
     socklen_t addr_len = sizeof(struct sockaddr_in);
-    Heartbeat_Packet *send_packet, *recv_packet;
     ssize_t bytes_sent, bytes_received;
 
     retries = 0;
@@ -204,43 +214,43 @@ int handle_connection(int sockfd)
     while (1)
     {
         // Create a heartbeat packet
-        send_packet = create_heartbeat_packet("HEARTBEAT");
-        if (send_packet == NULL)
+        heartbeat_data->packet = create_heartbeat_packet("HEARTBEAT");
+        if (heartbeat_data->packet == NULL)
         {
             ret_value = -1;
             break;
         }
 
-        bytes_sent = send_heartbeat_packet(sockfd, send_packet, (struct sockaddr *)&server_addr, addr_len);
+        bytes_sent = send_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, &heartbeat_data->addr, heartbeat_data->addrlen);
         if (bytes_sent < 0)
         {
-            free_heartbeat_packet(send_packet);
+            free_heartbeat_packet(heartbeat_data->packet);
             ret_value = -1;
             break;
         }
-        printf("heartbeat_client: mensaje enviado: %s - %ld\n", send_packet->message, send_packet->timestamp);
-        free_heartbeat_packet(send_packet);
+        printf("heartbeat_client: mensaje enviado: %s - %ld\n", heartbeat_data->packet->message, heartbeat_data->packet->timestamp);
+        free_heartbeat_packet(heartbeat_data->packet);
 
-        if (set_heartbeat_timeout(sockfd, HEARTBEAT_TIMEOUT_SEC) < 0)
+        if (set_heartbeat_timeout(heartbeat_data->sockfd, HEARTBEAT_TIMEOUT_SEC) < 0)
         {
             ret_value = -1;
             break;
         }
 
         // Allocate memory for recv_packet
-        recv_packet = (Heartbeat_Packet *)malloc(sizeof(Heartbeat_Packet));
-        if (recv_packet == NULL)
+        heartbeat_data->packet = (Heartbeat_Packet *)malloc(sizeof(Heartbeat_Packet));
+        if (heartbeat_data->packet == NULL)
         {
             perror("Error allocating memory for recv_packet");
             ret_value = -1;
             break;
         }
-        bytes_received = recv_heartbeat_packet(sockfd, recv_packet, (struct sockaddr *)&client_addr, &addr_len);
+        bytes_received = recv_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, &heartbeat_data->addr, &heartbeat_data->addrlen);
 
-        if (bytes_received > 0 && strcmp(recv_packet->message, "ACK") == 0)
+        if (bytes_received > 0 && strcmp(heartbeat_data->packet->message, "ACK") == 0)
         {
-            printf("heartbeat_client: mensaje recibido: %s - %ld\n", recv_packet->message, recv_packet->timestamp);
-            free_heartbeat_packet(recv_packet);
+            printf("heartbeat_client: mensaje recibido: %s - %ld\n", heartbeat_data->packet->message, heartbeat_data->packet->timestamp);
+            free_heartbeat_packet(heartbeat_data->packet);
             retries = 0; // Reset retries on successful response
         }
         else

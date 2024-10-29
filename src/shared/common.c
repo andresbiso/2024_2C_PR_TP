@@ -192,9 +192,11 @@ int free_simple_packet(Simple_Packet *packet)
     if (packet->data != NULL)
     {
         free(packet->data);
+        packet->data = NULL;
     }
     free(packet); // Free the packet struct itself
-    return 0;     // Success
+    packet = NULL;
+    return 0; // Success
 }
 
 ssize_t send_simple_packet(int sockfd, Simple_Packet *packet)
@@ -293,6 +295,10 @@ Heartbeat_Packet *create_heartbeat_packet(const char *message)
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
         return NULL;
     }
+
+    // Initialize allocated memory to zero
+    memset(packet, 0, sizeof(Heartbeat_Packet));
+
     strcpy(packet->message, message);
     packet->timestamp = time(NULL);
     return packet;
@@ -305,7 +311,8 @@ int free_heartbeat_packet(Heartbeat_Packet *packet)
         return -1; // Error: Packet is NULL
     }
     free(packet); // Free the packet struct itself
-    return 0;     // Success
+    packet = NULL;
+    return 0; // Success
 }
 
 ssize_t send_heartbeat_packet(int sockfd, Heartbeat_Packet *packet, const struct sockaddr *dest_addr, socklen_t addrlen)
@@ -338,6 +345,44 @@ ssize_t recv_heartbeat_packet(int sockfd, Heartbeat_Packet *packet, struct socka
 
     printf("Total recibido: %ld bytes\n", bytes_received);
     return bytes_received;
+}
+
+Heartbeat_Data *create_heartbeat_data(int sockfd)
+{
+    Heartbeat_Data *data;
+
+    if (sockfd == NULL)
+    {
+        return NULL;
+    }
+
+    data = (Heartbeat_Data *)malloc(sizeof(Heartbeat_Data *));
+    if (data == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        return NULL;
+    }
+    memset(data, 0, sizeof(Heartbeat_Data *));
+
+    // Initialize allocated memory to zero
+    data->sockfd = sockfd;
+    data->packet = NULL;
+
+    return data;
+}
+
+void free_heartbeat_data(Heartbeat_Data *data)
+{
+    if (data != NULL)
+    {
+        if (data->sockfd > 0)
+        {
+            close(data->sockfd);
+        }
+        free_heartbeat_packet(data->packet);
+        free(data);
+        data = NULL;
+    }
 }
 
 void simulate_work()

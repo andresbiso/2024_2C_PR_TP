@@ -28,6 +28,14 @@ typedef struct
     time_t timestamp;
 } Heartbeat_Packet;
 
+typedef struct
+{
+    int sockfd;
+    struct sockaddr addr; // Address structure
+    socklen_t addrlen;    // Address length
+    Heartbeat_Packet *packet;
+} Heartbeat_Data;
+
 char *allocate_string(const char *source);
 char *allocate_string_with_length(size_t length);
 ssize_t recvall(int sockfd, void *buf, size_t len);
@@ -42,7 +50,9 @@ ssize_t recv_simple_packet(int sockfd, Simple_Packet **packet);
 Heartbeat_Packet *create_heartbeat_packet(const char *message);
 int free_heartbeat_packet(Heartbeat_Packet *packet);
 ssize_t send_heartbeat_packet(int sockfd, Heartbeat_Packet *packet, const struct sockaddr *dest_addr, socklen_t addrlen);
-ssize_t recv_hearbeat_packet(int sockfd, Heartbeat_Packet *packet, struct sockaddr *src_addr, socklen_t *addrlen);
+ssize_t recv_heartbeat_packet(int sockfd, Heartbeat_Packet *packet, struct sockaddr *src_addr, socklen_t *addrlen);
+Heartbeat_Data *create_heartbeat_data(int sockfd);
+void free_heartbeat_data(Heartbeat_Data *data);
 void simulate_work();
 
 #endif // COMMON_H

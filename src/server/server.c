@@ -30,7 +30,8 @@ int main(int argc, char *argv[])
 {
     char ip_number[INET_ADDRSTRLEN], port_number_tcp[PORTSTRLEN], port_number_udp[PORTSTRLEN];
     int ret_val;
-    int sockfd_tcp, sockfd_udp; // listen on these sockfd
+    int sockfd_tcp; // listen on these sockfd
+    Heartbeat_Data *heartbeat_data;
 
     strcpy(ip_number, DEFAULT_IP);
     strcpy(port_number_tcp, DEFAULT_PORT_TCP);
@@ -56,20 +57,20 @@ int main(int argc, char *argv[])
     {
         return EXIT_FAILURE;
     }
-    sockfd_udp = setup_server_udp(ip_number, port_number_udp);
-    if (sockfd_udp <= 0)
+    heartbeat_data = setup_server_udp(ip_number, port_number_udp);
+    if (heartbeat_data == NULL)
     {
         return EXIT_FAILURE;
     }
     setup_signals();
-    ret_val = handle_connections(sockfd_tcp, sockfd_udp);
+    ret_val = handle_connections(sockfd_tcp, heartbeat_data);
     if (ret_val < 0)
     {
         return EXIT_FAILURE;
     }
 
     close(sockfd_tcp);
-    close(sockfd_udp);
+    free_heartbeat_data(heartbeat_data);
     // pthread_mutex_destroy(&lock);
     puts("server: finalizando");
     return EXIT_SUCCESS;
@@ -227,7 +228,7 @@ int setup_server_tcp(char *ip_number, char *port_number)
     return sockfd;
 }
 
-int setup_server_udp(char *ip_number, char *port_number)
+Heartbeat_Data *setup_server_udp(char *ip_number, char *port_number)
 {
     int gai_ret_val, sockfd;
     char my_ipstr[INET_ADDRSTRLEN];
@@ -235,9 +236,10 @@ int setup_server_udp(char *ip_number, char *port_number)
     struct sockaddr_in *ipv4;
     struct in_addr *my_addr;
     socklen_t yes;
+    Heartbeat_Data *data;
 
     yes = 1;
-    sockfd = 0;
+    data = NULL;
 
     // Setup addinfo
     memset(&hints, 0, sizeof hints);
@@ -298,6 +300,12 @@ int setup_server_udp(char *ip_number, char *port_number)
         return -1;
     }
 
+    data = create_heartbeat_data(sockfd);
+    if (data == NULL)
+    {
+        return NULL;
+    }
+
     // Show listening ip and port
     ipv4 = (struct sockaddr_in *)p->ai_addr;
     my_addr = &(ipv4->sin_addr);
@@ -306,10 +314,10 @@ int setup_server_udp(char *ip_number, char *port_number)
     printf("server: UDP %s:%s\n", my_ipstr, port_number);
     puts("server: UDP esperando conexiones...");
 
-    return sockfd;
+    return data;
 }
 
-int handle_connections(int sockfd_tcp, int sockfd_udp)
+int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
 {
     char their_ipstr[INET_ADDRSTRLEN];
     int i, max_fd, new_fd, ret_val, their_port, select_ret;
@@ -330,8 +338,8 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
     FD_ZERO(&except_fds);
     // Add sockfd to the master set
     FD_SET(sockfd_tcp, &master);
-    FD_SET(sockfd_udp, &master);
-    max_fd = sockfd_tcp > sockfd_udp ? sockfd_tcp : sockfd_udp;
+    FD_SET(heartbeat_data->sockfd, &master);
+    max_fd = sockfd_tcp > heartbeat_data->sockfd ? sockfd_tcp : heartbeat_data->sockfd;
 
     clients = init_clients_tcp_data(MAX_CLIENTS);
     if (clients == NULL)
@@ -402,17 +410,14 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
 
                     printf("server: obtuvo conexión de %s:%d\n", their_ipstr, their_port);
                 }
-                // if it is the UDP listening socket
-                else if (i == sockfd_tcp)
+                // if it is the Heartbeat listening socket
+                else if (i == heartbeat_data->sockfd)
                 {
                     // handle read
-                    if (pthread_create(&thread, &attr, handle_client_heartbeat_read, (void *)clients[i]) != 0)
+                    if (pthread_create(&thread, &attr, handle_client_heartbeat_read, (void *)heartbeat_data) != 0)
                     {
                         perror("server: pthread_create");
                         ret_val = -1;
-                        cleanup_client(&clients[i]);
-                        FD_CLR(i, &master);
-                        close(i);
                         break;
                     }
 
@@ -426,14 +431,12 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
                         if (thread_result->value == THREAD_RESULT_ERROR || thread_result->value == THREAD_RESULT_CLOSED)
                         {
                             ret_val = -1;
-                            // cleanup_client(&client_udp);
                         }
                         free(thread_result);
                     }
                     else
                     {
                         ret_val = -1;
-                        // cleanup_client(&client_udp);
                     }
                     continue;
                 }
@@ -444,9 +447,8 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
                     {
                         perror("server: pthread_create");
                         ret_val = -1;
-                        cleanup_client(&clients[i]);
+                        free_client_tcp_data(&clients[i]);
                         FD_CLR(i, &master);
-                        close(i);
                         break;
                     }
 
@@ -460,35 +462,30 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
                         if (thread_result->value == THREAD_RESULT_ERROR || thread_result->value == THREAD_RESULT_CLOSED)
                         {
                             ret_val = -1;
-                            cleanup_client(&clients[i]);
+                            free_client_tcp_data(&clients[i]);
                             FD_CLR(i, &master);
-                            close(i);
                         }
                         free(thread_result);
                     }
                     else
                     {
                         ret_val = -1;
-                        cleanup_client(&clients[i]);
+                        free_client_tcp_data(&clients[i]);
                         FD_CLR(i, &master);
-                        close(i);
                     }
                     continue;
                 }
             }
             else if (FD_ISSET(i, &write_fds))
             {
-                // if it is the UDP listening socket
-                if (i == sockfd_tcp)
+                // if it is the Heartbeat listening socket
+                if (i == heartbeat_data->sockfd)
                 {
                     // handle write
-                    if (pthread_create(&thread, &attr, handle_client_heartbeat_write, (void *)clients[i]) != 0)
+                    if (pthread_create(&thread, &attr, handle_client_heartbeat_write, (void *)heartbeat_data) != 0)
                     {
                         perror("server: pthread_create");
                         ret_val = -1;
-                        cleanup_client(&clients[i]);
-                        FD_CLR(i, &master);
-                        close(i);
                         break;
                     }
 
@@ -497,19 +494,17 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
                     {
                         if (thread_result->value == THREAD_RESULT_ERROR)
                         {
-                            perror("server: error en lectura");
+                            perror("server: error en escritura");
                         }
                         if (thread_result->value == THREAD_RESULT_ERROR || thread_result->value == THREAD_RESULT_CLOSED)
                         {
                             ret_val = -1;
-                            // cleanup_client(&client_udp);
                         }
                         free(thread_result);
                     }
                     else
                     {
                         ret_val = -1;
-                        // cleanup_client(&client_udp);
                     }
                     continue;
                 }
@@ -520,9 +515,8 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
                     {
                         perror("server: pthread_create");
                         ret_val = -1;
-                        cleanup_client(&clients[i]);
+                        free_client_tcp_data(&clients[i]);
                         FD_CLR(i, &master);
-                        close(i);
                         break;
                     }
                     pthread_join(thread, (void **)&thread_result);
@@ -535,18 +529,16 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
                         if (thread_result->value == THREAD_RESULT_ERROR || thread_result->value == THREAD_RESULT_CLOSED)
                         {
                             ret_val = -1;
-                            cleanup_client(&clients[i]);
+                            free_client_tcp_data(&clients[i]);
                             FD_CLR(i, &master);
-                            close(i);
                         }
                         free(thread_result);
                     }
                     else
                     {
                         ret_val = -1;
-                        cleanup_client(&clients[i]);
+                        free_client_tcp_data(&clients[i]);
                         FD_CLR(i, &master);
-                        close(i);
                     }
                     continue;
                 }
@@ -555,12 +547,11 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
             {
                 // handle exceptions on the socket
                 perror("server: excepción en socket");
-                if (i != sockfd_tcp && i != sockfd_udp)
+                if (i != sockfd_tcp && i != heartbeat_data->sockfd)
                 {
                     ret_val = -1;
-                    cleanup_client(&clients[i]);
+                    free_client_tcp_data(&clients[i]);
                     FD_CLR(i, &master);
-                    close(i);
                 }
                 continue;
             }
@@ -572,7 +563,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
     FD_ZERO(&read_fds);
     FD_ZERO(&write_fds);
     FD_ZERO(&except_fds);
-    cleanup_clients(clients, MAX_CLIENTS);
+    free_clients_tcp_data(clients, MAX_CLIENTS);
     pthread_attr_destroy(&attr);
     return ret_val;
 }
@@ -603,7 +594,6 @@ void *handle_client_simple_read(void *arg)
     if (client_data->packet != NULL)
     {
         free_simple_packet(client_data->packet);
-        client_data->packet = NULL;
     }
 
     // receive initial message from client
@@ -612,7 +602,6 @@ void *handle_client_simple_read(void *arg)
     {
         fprintf(stderr, "server: conexión cerrada antes de recibir packet\n");
         free_simple_packet(client_data->packet);
-        client_data->packet = NULL;
         thread_result->value = THREAD_RESULT_CLOSED;
         pthread_exit((void *)thread_result);
     }
@@ -620,7 +609,6 @@ void *handle_client_simple_read(void *arg)
     {
         fprintf(stderr, "server: error al recibir packet\n");
         free_simple_packet(client_data->packet);
-        client_data->packet = NULL;
         thread_result->value = THREAD_RESULT_ERROR;
         pthread_exit((void *)thread_result);
     }
@@ -671,7 +659,6 @@ void *handle_client_simple_write(void *arg)
         {
             fprintf(stderr, "server: error al enviar packet\n");
             free_simple_packet(client_data->packet);
-            client_data->packet = NULL;
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
@@ -691,7 +678,6 @@ void *handle_client_simple_write(void *arg)
         {
             fprintf(stderr, "server: Error al enviar packet\n");
             free_simple_packet(client_data->packet);
-            client_data->packet = NULL;
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
@@ -707,44 +693,21 @@ void *handle_client_simple_write(void *arg)
 
 void *handle_client_heartbeat_read(void *arg)
 {
-    // Client_Tcp_Data *client_data = (Client_Tcp_Data *)arg;
-    // struct sockaddr_in client_addr;
-    // socklen_t addr_len = sizeof(client_addr);
-    // char buffer[UDP_BUF_SIZE];
-
-    // while (1)
-    // {
-    //     int len = recvfrom(client_data->client_sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, &addr_len);
-    //     if (len > 0)
-    //     {
-    //         buffer[len] = '\0';
-    //         pthread_mutex_lock(&lock);
-    //         strncpy(client_data->packet.message, buffer, UDP_BUF_SIZE);
-    //         client_data->packet.timestamp = time(NULL);
-    //         pthread_mutex_unlock(&lock);
-    //         printf("Received: %s\n", client_data->packet.message);
-    //     }
-    // }
-}
-
-void *handle_client_heartbeat_write(void *arg)
-{
-    char message[DEFAULT_BUFFER_SIZE];
-    Client_Udp_Data *client_data;
+    char *client_ipstr;
+    socklen_t addrlen;
+    ssize_t recv_val;
+    struct sockaddr src_addr;
+    struct sockaddr_in *client_ipv4;
+    struct sin_addr *client_addr;
+    Heartbeat_Data *heartbeat_data;
     Thread_Result *thread_result;
-    struct sockaddr *dest_addr;
-    socklen_t socklen;
-
-    //  struct sockaddr_in server_addr;
-    // char buffer[BUF_SIZE];
-    // socklen_t addr_len = sizeof(server_addr);
 
     if (arg == NULL)
     {
         return NULL;
     }
 
-    client_data = (Client_Udp_Data *)arg;
+    heartbeat_data = (Heartbeat_Data *)arg;
     thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
     if (thread_result == NULL)
     {
@@ -752,34 +715,104 @@ void *handle_client_heartbeat_write(void *arg)
         return NULL;
     }
 
-    printf("Thread cliente (%s:%d): escritura comienzo\n", client_data->client_ipstr, client_data->client_port);
+    puts("Thread Heartbeat: lectura comienzo");
 
     simulate_work();
-    // send PONG message
-    if (client_data->packet != NULL && strstr(client_data->packet->message, "HEARTBEAT") != NULL)
+
+    if (heartbeat_data->packet != NULL)
+    {
+        free_heartbeat_packet(heartbeat_data->packet);
+    }
+
+    // receive HEARTBEAT message from client
+    recv_val = recv_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, &heartbeat_data->addr, heartbeat_data->addrlen);
+    if (recv_val == 0)
+    {
+        fprintf(stderr, "server: conexión cerrada antes de recibir packet\n");
+        free_heartbeat_packet(heartbeat_data->packet);
+        thread_result->value = THREAD_RESULT_CLOSED;
+        pthread_exit((void *)thread_result);
+    }
+    else if (recv_val < 0)
+    {
+        fprintf(stderr, "server: error al recibir packet\n");
+        free_heartbeat_packet(heartbeat_data->packet);
+        thread_result->value = THREAD_RESULT_ERROR;
+        pthread_exit((void *)thread_result);
+    }
+
+    client_ipv4 = (struct sockaddr_in *)&heartbeat_data->addr;
+    client_addr = &(client_ipv4->sin_addr);
+    inet_ntop(client_ipv4->sin_family, client_addr, client_ipstr, sizeof(client_ipstr));
+
+    printf("server: mensaje del cliente: %s:%ld\n", client_ipstr, ntohs(client_ipv4->sin_port));
+    printf("server: mensaje recibido: %s - %ld\n", heartbeat_data->packet->message, heartbeat_data->packet->timestamp);
+
+    // Print completion message
+    puts("Thread Heartbeat: lectura fin");
+
+    thread_result->value = THREAD_RESULT_SUCCESS;
+    pthread_exit((void *)thread_result);
+}
+
+void *handle_client_heartbeat_write(void *arg)
+{
+    char message[DEFAULT_BUFFER_SIZE];
+    char *client_ipstr;
+    socklen_t addrlen;
+    ssize_t recv_val;
+    struct sockaddr src_addr;
+    struct sockaddr_in *client_ipv4;
+    struct sin_addr *client_addr;
+    Heartbeat_Data *heartbeat_data;
+    Thread_Result *thread_result;
+
+    if (arg == NULL)
+    {
+        return NULL;
+    }
+
+    heartbeat_data = (Heartbeat_Data *)arg;
+    thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
+    if (thread_result == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        return NULL;
+    }
+
+    puts("Thread Heartbeat: escritura comienzo");
+
+    simulate_work();
+
+    // send ACK message
+    if (heartbeat_data->packet != NULL && strstr(heartbeat_data->packet->message, "HEARTBEAT") != NULL)
     {
         puts("server: el mensaje contiene \"HEARTBEAT\"");
-        free_heartbeat_packet(client_data->packet);
+        free_heartbeat_packet(heartbeat_data->packet);
         strcpy(message, "ACK");
-        if ((client_data->packet = create_heartbeat_packet(message)) == NULL)
+        if ((heartbeat_data->packet = create_simple_packet(message)) == NULL)
         {
             fprintf(stderr, "server: error al crear packet\n");
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
-        if (send_heartbeat_packet(client_data->client_sockfd, client_data->packet, dest_addr, ) < 0)
+        if (send_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, &heartbeat_data->addr, heartbeat_data->addrlen) < 0)
         {
             fprintf(stderr, "server: error al enviar packet\n");
-            free_heartbeat_packet(client_data->packet);
-            client_data->packet = NULL;
+            free_heartbeat_packet(heartbeat_data->packet);
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
-        printf("server: mensaje heartbeat enviado: \"%s\" - \"%ld\" \n", client_data->packet->message, client_data->packet->timestamp);
+        client_ipv4 = (struct sockaddr_in *)&heartbeat_data->addr;
+        client_addr = &(client_ipv4->sin_addr);
+        inet_ntop(client_ipv4->sin_family, client_addr, client_ipstr, sizeof(client_ipstr));
+
+        printf("server: mensaje al cliente: %s:%ld\n", client_ipstr, ntohs(client_ipv4->sin_port));
+        printf("server: mensaje enviado: %s - %ld\n", heartbeat_data->packet->message, heartbeat_data->packet->timestamp);
     }
 
     // Print completion message
-    printf("Thread cliente (%s:%d): escritura fin\n", client_data->client_ipstr, client_data->client_port);
+    puts("Thread Heartbeat: escritura fin");
 
     thread_result->value = THREAD_RESULT_SUCCESS;
     pthread_exit((void *)thread_result);
@@ -814,58 +847,25 @@ Client_Tcp_Data **init_clients_tcp_data(int len)
     return clients;
 }
 
-void cleanup_clients_tcp_data(Client_Tcp_Data **clients, int len)
+void free_clients_tcp_data(Client_Tcp_Data **clients, int len)
 {
     for (int i = 0; i < len; i++)
     {
-        cleanup_client(&clients[i]);
+        free_client_tcp_data(&clients[i]);
     }
 }
 
-void cleanup_client_tcp_data(Client_Tcp_Data **client)
+void free_client_tcp_data(Client_Tcp_Data **client)
 {
     if (*client != NULL)
     {
+        if ((*client)->client_sockfd > 0)
+        {
+            close((*client)->client_sockfd);
+        }
+        free_simple_packet((*client)->packet);
         free(*client);
         *client = NULL;
-    }
-}
-
-int create_client_udp_data(Client_Udp_Data *data, int sockfd, const char *ipstr, in_port_t port)
-{
-    if (data == NULL || sockfd <= 0 || ipstr == NULL || port <= 0)
-    {
-        return -1;
-    }
-
-    // Initialize allocated memory to zero
-    data->client_sockfd = sockfd;
-    strcpy(data->client_ipstr, ipstr);
-    data->client_port = port;
-    data->packet = NULL;
-
-    return 0;
-}
-
-Client_Udp_Data *init_client_udp_data()
-{
-    Client_Udp_Data *client;
-    client = (Client_Udp_Data *)malloc(sizeof(Client_Udp_Data *));
-    if (client == NULL)
-    {
-        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
-        return NULL;
-    }
-    memset(client, 0, sizeof(Client_Tcp_Data *));
-    return client;
-}
-
-void cleanup_client_udp_data(Client_Udp_Data *client)
-{
-    if (client != NULL)
-    {
-        free(client);
-        client = NULL;
     }
 }
 
