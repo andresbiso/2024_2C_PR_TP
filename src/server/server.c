@@ -832,6 +832,13 @@ int create_client_tcp_data(Client_Tcp_Data *data, int sockfd, const char *ipstr,
 Client_Tcp_Data **init_clients_tcp_data(int len)
 {
     Client_Tcp_Data **clients;
+
+    if (len <= 0)
+    {
+        fprintf(stderr, "Largo inválido: %d\n", len);
+        return NULL;
+    }
+
     clients = (Client_Tcp_Data **)malloc(len * sizeof(Client_Tcp_Data *));
     if (clients == NULL)
     {
