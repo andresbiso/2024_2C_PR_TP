@@ -356,7 +356,7 @@ Heartbeat_Data *create_heartbeat_data(int sockfd)
         return NULL;
     }
 
-    data = (Heartbeat_Data *)malloc(sizeof(Heartbeat_Data *));
+    data = (Heartbeat_Data *)malloc(sizeof(Heartbeat_Data));
     if (data == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));

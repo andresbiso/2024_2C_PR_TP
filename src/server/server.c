@@ -28,14 +28,14 @@ volatile sig_atomic_t stop;
 
 int main(int argc, char *argv[])
 {
-    char ip_number[INET_ADDRSTRLEN], port_number_tcp[PORTSTRLEN], port_number_udp[PORTSTRLEN];
+    char local_ip[INET_ADDRSTRLEN], local_port_tcp[PORTSTRLEN], local_port_udp[PORTSTRLEN];
     int ret_val;
     int sockfd_tcp; // listen on these sockfd
     Heartbeat_Data *heartbeat_data;
 
-    strcpy(ip_number, DEFAULT_IP);
-    strcpy(port_number_tcp, DEFAULT_PORT_TCP);
-    strcpy(port_number_udp, DEFAULT_PORT_UDP);
+    strcpy(local_ip, LOCAL_IP);
+    strcpy(local_port_tcp, LOCAL_PORT_TCP);
+    strcpy(local_port_udp, LOCAL_PORT_UDP);
 
     // if (pthread_mutex_init(&lock, NULL) != 0)
     // {
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
     //     return EXIT_FAILURE;
     // }
 
-    ret_val = parse_arguments(argc, argv, ip_number, port_number_tcp, port_number_udp);
+    ret_val = parse_arguments(argc, argv, local_ip, local_port_tcp, local_port_udp);
     if (ret_val > 0)
     {
         return EXIT_SUCCESS;
@@ -52,12 +52,12 @@ int main(int argc, char *argv[])
     {
         return EXIT_FAILURE;
     }
-    sockfd_tcp = setup_server_tcp(ip_number, port_number_tcp);
+    sockfd_tcp = setup_server_tcp(local_ip, local_port_tcp);
     if (sockfd_tcp <= 0)
     {
         return EXIT_FAILURE;
     }
-    heartbeat_data = setup_server_udp(ip_number, port_number_udp);
+    heartbeat_data = setup_server_udp(local_ip, local_port_udp);
     if (heartbeat_data == NULL)
     {
         return EXIT_FAILURE;
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-int parse_arguments(int argc, char *argv[], char *ip_number, char *port_number_tcp, char *port_number_udp)
+int parse_arguments(int argc, char *argv[], char *local_ip, char *local_port_tcp, char *local_port_udp)
 {
     int ret_val;
 
@@ -97,19 +97,19 @@ int parse_arguments(int argc, char *argv[], char *ip_number, char *port_number_t
                 ret_val = 1;
                 break;
             }
-            else if (strcmp(argv[i], "--ip") == 0 && i + 1 < argc)
+            else if (strcmp(argv[i], "--local-ip") == 0 && i + 1 < argc)
             {
-                strcpy(ip_number, argv[i + 1]);
+                strcpy(local_ip, argv[i + 1]);
                 i++; // Skip the next argument since it's the IP address
             }
-            else if (strcmp(argv[i], "--port-tcp") == 0 && i + 1 < argc)
+            else if (strcmp(argv[i], "--local-port-tcp") == 0 && i + 1 < argc)
             {
-                strcpy(port_number_tcp, argv[i + 1]);
+                strcpy(local_port_tcp, argv[i + 1]);
                 i++; // Skip the next argument since it's the port number
             }
-            else if (strcmp(argv[i], "--port-udp") == 0 && i + 1 < argc)
+            else if (strcmp(argv[i], "--local-port-udp") == 0 && i + 1 < argc)
             {
-                strcpy(port_number_udp, argv[i + 1]);
+                strcpy(local_port_udp, argv[i + 1]);
                 i++; // Skip the next argument since it's the port number
             }
             else
@@ -130,9 +130,9 @@ void show_help()
     puts("Opciones:");
     puts("  --help      Muestra este mensaje de ayuda");
     puts("  --version   Muestra version del programa");
-    puts("  --ip <ip> Especificar el número de ip");
-    puts("  --port-tcp <puerto> Especificar el número de puerto tcp");
-    puts("  --port-udp <puerto> Especificar el número de puerto udp");
+    puts("  --local-ip <ip> Especificar el número de ip local");
+    puts("  --local-port-tcp <puerto> Especificar el número de puerto tcp local");
+    puts("  --local-port-udp <puerto> Especificar el número de puerto udp local");
 }
 
 void show_version()
@@ -140,13 +140,13 @@ void show_version()
     printf("Server Version %s\n", VERSION);
 }
 
-int setup_server_tcp(char *ip_number, char *port_number)
+int setup_server_tcp(char *local_ip, char *local_port)
 {
     int gai_ret_val, sockfd;
-    char my_ipstr[INET_ADDRSTRLEN];
+    char ipv4_ipstr[INET_ADDRSTRLEN];
     struct addrinfo hints, *servinfo, *p;
     struct sockaddr_in *ipv4;
-    struct in_addr *my_addr;
+    struct in_addr *ipv4_addr;
     socklen_t yes;
 
     yes = 1;
@@ -157,7 +157,7 @@ int setup_server_tcp(char *ip_number, char *port_number)
     hints.ai_family = AF_INET; // AF_INET to force version IPv4
     hints.ai_socktype = SOCK_STREAM;
 
-    if ((gai_ret_val = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
+    if ((gai_ret_val = getaddrinfo(local_ip, local_port, &hints, &servinfo)) != 0)
     {
         fprintf(stderr, "server: TCP getaddrinfo: %s\n", gai_strerror(gai_ret_val));
         return -1;
@@ -167,11 +167,11 @@ int setup_server_tcp(char *ip_number, char *port_number)
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
         ipv4 = (struct sockaddr_in *)p->ai_addr;
-        my_addr = &(ipv4->sin_addr);
+        ipv4_addr = &(ipv4->sin_addr);
 
         // Convert the IP to a string and print it
-        inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof(my_ipstr));
-        printf("->  IPv4: %s\n", my_ipstr);
+        inet_ntop(p->ai_family, ipv4_addr, ipv4_ipstr, sizeof(ipv4_ipstr));
+        printf("->  IPv4: %s\n", ipv4_ipstr);
     }
 
     // Loop through all the results and bind to the first we can
@@ -219,22 +219,22 @@ int setup_server_tcp(char *ip_number, char *port_number)
 
     // Show listening ip and port
     ipv4 = (struct sockaddr_in *)p->ai_addr;
-    my_addr = &(ipv4->sin_addr);
-    inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof(my_ipstr));
+    ipv4_addr = &(ipv4->sin_addr);
+    inet_ntop(p->ai_family, ipv4_addr, ipv4_ipstr, sizeof(ipv4_ipstr));
 
-    printf("server: TCP %s:%s\n", my_ipstr, port_number);
+    printf("server: TCP %s:%d\n", ipv4_ipstr, ntohs(ipv4->sin_port));
     puts("server: TCP esperando conexiones...");
 
     return sockfd;
 }
 
-Heartbeat_Data *setup_server_udp(char *ip_number, char *port_number)
+Heartbeat_Data *setup_server_udp(char *local_ip, char *local_port)
 {
     int gai_ret_val, sockfd;
-    char my_ipstr[INET_ADDRSTRLEN];
+    char ipv4_ipstr[INET_ADDRSTRLEN];
     struct addrinfo hints, *servinfo, *p;
     struct sockaddr_in *ipv4;
-    struct in_addr *my_addr;
+    struct in_addr *ipv4_addr;
     socklen_t yes;
     Heartbeat_Data *data;
 
@@ -246,7 +246,7 @@ Heartbeat_Data *setup_server_udp(char *ip_number, char *port_number)
     hints.ai_family = AF_INET; // AF_INET to force version IPv4
     hints.ai_socktype = SOCK_DGRAM;
 
-    if ((gai_ret_val = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
+    if ((gai_ret_val = getaddrinfo(local_ip, local_port, &hints, &servinfo)) != 0)
     {
         fprintf(stderr, "server: UDP getaddrinfo: %s\n", gai_strerror(gai_ret_val));
         return NULL;
@@ -256,11 +256,11 @@ Heartbeat_Data *setup_server_udp(char *ip_number, char *port_number)
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
         ipv4 = (struct sockaddr_in *)p->ai_addr;
-        my_addr = &(ipv4->sin_addr);
+        ipv4_addr = &(ipv4->sin_addr);
 
         // Convert the IP to a string and print it
-        inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof(my_ipstr));
-        printf("->  IPv4: %s\n", my_ipstr);
+        inet_ntop(p->ai_family, ipv4_addr, ipv4_ipstr, sizeof(ipv4_ipstr));
+        printf("->  IPv4: %s\n", ipv4_ipstr);
     }
 
     // Loop through all the results and bind to the first we can
@@ -308,10 +308,10 @@ Heartbeat_Data *setup_server_udp(char *ip_number, char *port_number)
 
     // Show listening ip and port
     ipv4 = (struct sockaddr_in *)p->ai_addr;
-    my_addr = &(ipv4->sin_addr);
-    inet_ntop(p->ai_family, my_addr, my_ipstr, sizeof(my_ipstr));
+    ipv4_addr = &(ipv4->sin_addr);
+    inet_ntop(p->ai_family, ipv4_addr, ipv4_ipstr, sizeof(ipv4_ipstr));
 
-    printf("server: UDP %s:%s\n", my_ipstr, port_number);
+    printf("server: UDP %s:%d\n", ipv4_ipstr, ntohs(ipv4->sin_port));
     puts("server: UDP esperando conexiones...");
 
     return data;
@@ -324,8 +324,9 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
     fd_set master, read_fds, write_fds, except_fds;
     pthread_t thread;
     pthread_attr_t attr;
-    struct sockaddr their_addr; // connector's address information
     socklen_t sin_size;
+    struct sockaddr their_addr; // connector's address information
+    struct timeval timeout;
     Client_Tcp_Data **clients;
     Thread_Result *thread_result;
 
@@ -340,6 +341,9 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
     FD_SET(sockfd_tcp, &master);
     FD_SET(heartbeat_data->sockfd, &master);
     max_fd = sockfd_tcp > heartbeat_data->sockfd ? sockfd_tcp : heartbeat_data->sockfd;
+
+    timeout.tv_sec = 2; // 2 seconds timeout
+    timeout.tv_usec = 0;
 
     clients = init_clients_tcp_data(MAX_CLIENTS);
     if (clients == NULL)
@@ -363,7 +367,7 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
         except_fds = master;
 
         // First argument is always nfds = max_fd + 1
-        if ((select_ret = select(max_fd + 1, &read_fds, &write_fds, &except_fds, NULL)) == -1)
+        if ((select_ret = select(max_fd + 1, &read_fds, &write_fds, &except_fds, &timeout)) == -1)
         {
             perror("server: select");
             ret_val = -1;
@@ -775,6 +779,11 @@ void *handle_client_heartbeat_write(void *arg)
         return NULL;
     }
 
+    if (heartbeat_data->packet == NULL)
+    {
+        return NULL;
+    }
+
     puts("Thread Heartbeat: escritura comienzo");
 
     simulate_work();
@@ -839,13 +848,13 @@ Client_Tcp_Data **init_clients_tcp_data(int len)
         return NULL;
     }
 
-    clients = (Client_Tcp_Data **)malloc(len * sizeof(Client_Tcp_Data *));
+    clients = (Client_Tcp_Data **)malloc(len * sizeof(Client_Tcp_Data));
     if (clients == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
         return NULL;
     }
-    memset(clients, 0, len * sizeof(Client_Tcp_Data *));
+    memset(clients, 0, len * sizeof(Client_Tcp_Data));
     return clients;
 }
 

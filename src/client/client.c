@@ -24,14 +24,14 @@
 
 int main(int argc, char *argv[])
 {
-    char ip_number[INET_ADDRSTRLEN], port_number[PORTSTRLEN];
+    char external_ip[INET_ADDRSTRLEN], external_port[PORTSTRLEN];
     int ret_val;
     int sockfd; // listen on sock_fd
 
-    strcpy(ip_number, DEFAULT_IP);
-    strcpy(port_number, DEFAULT_PORT);
+    strcpy(external_ip, EXTERNAL_IP);
+    strcpy(external_port, EXTERNAL_PORT);
 
-    ret_val = parse_arguments(argc, argv, port_number, ip_number);
+    ret_val = parse_arguments(argc, argv, external_ip, external_port);
     if (ret_val > 0)
     {
         return EXIT_SUCCESS;
@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
     {
         return EXIT_FAILURE;
     }
-    sockfd = setup_client(port_number, ip_number);
+    sockfd = setup_client(external_ip, external_port);
     if (sockfd <= 0)
     {
         return EXIT_FAILURE;
@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-int parse_arguments(int argc, char *argv[], char *port_number, char *ip_number)
+int parse_arguments(int argc, char *argv[], char *external_ip, char *external_port)
 {
     int ret_val;
 
@@ -77,15 +77,15 @@ int parse_arguments(int argc, char *argv[], char *port_number, char *ip_number)
                 ret_val = 1;
                 break;
             }
-            else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc)
+            else if (strcmp(argv[i], "--external-ip") == 0 && i + 1 < argc)
             {
-                strcpy(port_number, argv[i + 1]);
-                i++; // Skip the next argument since it's the port number
-            }
-            else if (strcmp(argv[i], "--ip") == 0 && i + 1 < argc)
-            {
-                strcpy(ip_number, argv[i + 1]);
+                strcpy(external_ip, argv[i + 1]);
                 i++; // Skip the next argument since it's the IP address
+            }
+            else if (strcmp(argv[i], "--external-port") == 0 && i + 1 < argc)
+            {
+                strcpy(external_port, argv[i + 1]);
+                i++; // Skip the next argument since it's the port number
             }
             else
             {
@@ -105,8 +105,8 @@ void show_help()
     puts("Opciones:");
     puts("  --help      Muestra este mensaje de ayuda");
     puts("  --version   Muestra version del programa");
-    puts("  --port <puerto> Especificar el número de puerto del servidor");
-    puts("  --ip <ip> Especificar el número de ip del servidor");
+    puts("  --external-ip <ip> Especificar el número de ip externp");
+    puts("  --external-port <puerto> Especificar el número de puerto externo");
 }
 
 void show_version()
@@ -114,13 +114,13 @@ void show_version()
     printf("Client Version %s\n", VERSION);
 }
 
-int setup_client(char *port_number, char *ip_number)
+int setup_client(char *external_ip, char *external_port)
 {
-    int gai_ret_val, local_port, sockfd;
-    char local_ip[INET_ADDRSTRLEN], their_ipstr[INET_ADDRSTRLEN];
+    int gai_ret_val, sockfd;
+    char local_ip[INET_ADDRSTRLEN], ipv4_ipstr[INET_ADDRSTRLEN];
     struct addrinfo *servinfo, *p;
     struct sockaddr_in local_addr, *ipv4;
-    struct in_addr *their_addr;
+    struct in_addr *ipv4_addr;
     socklen_t local_addr_len;
     struct addrinfo hints;
 
@@ -131,21 +131,21 @@ int setup_client(char *port_number, char *ip_number)
     hints.ai_family = AF_INET; // AF_INET to force version IPv4
     hints.ai_socktype = SOCK_STREAM;
 
-    if ((gai_ret_val = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
+    if ((gai_ret_val = getaddrinfo(external_ip, external_port, &hints, &servinfo)) != 0)
     {
         fprintf(stderr, "client: getaddrinfo: %s\n", gai_strerror(gai_ret_val));
         return -1;
     }
 
-    puts("client: direcciones resueltas");
+    puts("client: direcciones externas resueltas");
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
         ipv4 = (struct sockaddr_in *)p->ai_addr;
-        their_addr = &(ipv4->sin_addr);
+        ipv4_addr = &(ipv4->sin_addr);
 
         // Convert the IP to a string and print it:
-        inet_ntop(p->ai_family, their_addr, their_ipstr, sizeof(their_ipstr));
-        printf("->  IPv4: %s\n", their_ipstr);
+        inet_ntop(p->ai_family, ipv4_addr, ipv4_ipstr, sizeof(ipv4_ipstr));
+        printf("->  IPv4: %s\n", ipv4_ipstr);
     }
 
     // Loop through all the results and connect to the first we can
@@ -179,19 +179,18 @@ int setup_client(char *port_number, char *ip_number)
 
     // Show server ip and port
     ipv4 = (struct sockaddr_in *)p->ai_addr;
-    their_addr = &(ipv4->sin_addr);
-    inet_ntop(p->ai_family, their_addr, their_ipstr, sizeof(their_ipstr));
+    ipv4_addr = &(ipv4->sin_addr);
+    inet_ntop(p->ai_family, ipv4_addr, ipv4_ipstr, sizeof(ipv4_ipstr));
 
-    printf("client: conectado a %s:%s\n", their_ipstr, port_number);
+    printf("client: conectado a %s:%d\n", ipv4_ipstr, ntohs(ipv4->sin_port));
 
     // Show client ip and port
     local_addr_len = sizeof(struct sockaddr_in);
     // Returns the current address to which the socket sockfd is bound
     getsockname(sockfd, (struct sockaddr *)&local_addr, &local_addr_len);
     inet_ntop(local_addr.sin_family, &local_addr.sin_addr, local_ip, sizeof(local_ip));
-    local_port = ntohs(local_addr.sin_port);
 
-    printf("client: dirección local %s:%d\n", local_ip, local_port);
+    printf("client: dirección local %s:%d\n", local_ip, ntohs(local_addr.sin_port));
 
     return sockfd;
 }

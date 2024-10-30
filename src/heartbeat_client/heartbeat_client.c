@@ -24,14 +24,17 @@
 
 int main(int argc, char *argv[])
 {
-    char ip_number[INET_ADDRSTRLEN], port_number[PORTSTRLEN];
+    char local_ip[INET_ADDRSTRLEN], local_port[PORTSTRLEN],
+        external_ip[INET_ADDRSTRLEN], external_port[PORTSTRLEN];
     int ret_val;
     Heartbeat_Data *heartbeat_data;
 
-    strcpy(ip_number, DEFAULT_IP);
-    strcpy(port_number, DEFAULT_PORT);
+    strcpy(external_ip, EXTERNAL_IP);
+    strcpy(external_port, EXTERNAL_PORT);
+    strcpy(local_ip, LOCAL_IP);
+    strcpy(local_port, LOCAL_PORT);
 
-    ret_val = parse_arguments(argc, argv, port_number, ip_number);
+    ret_val = parse_arguments(argc, argv, local_ip, local_port, external_ip, external_port);
     if (ret_val > 0)
     {
         return EXIT_SUCCESS;
@@ -40,7 +43,7 @@ int main(int argc, char *argv[])
     {
         return EXIT_FAILURE;
     }
-    heartbeat_data = setup_heartbeat_client(port_number, ip_number);
+    heartbeat_data = setup_heartbeat_client(local_ip, local_port, external_ip, external_port);
     if (heartbeat_data == NULL)
     {
         return EXIT_FAILURE;
@@ -56,7 +59,7 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-int parse_arguments(int argc, char *argv[], char *port_number, char *ip_number)
+int parse_arguments(int argc, char *argv[], char *local_ip, char *local_port, char *external_ip, char *external_port)
 {
     int ret_val;
 
@@ -77,15 +80,25 @@ int parse_arguments(int argc, char *argv[], char *port_number, char *ip_number)
                 ret_val = 1;
                 break;
             }
-            else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc)
+            else if (strcmp(argv[i], "--local-ip") == 0 && i + 1 < argc)
             {
-                strcpy(port_number, argv[i + 1]);
+                strcpy(local_ip, argv[i + 1]);
+                i++; // Skip the next argument since it's the IP address
+            }
+            else if (strcmp(argv[i], "--local-port") == 0 && i + 1 < argc)
+            {
+                strcpy(local_port, argv[i + 1]);
                 i++; // Skip the next argument since it's the port number
             }
-            else if (strcmp(argv[i], "--ip") == 0 && i + 1 < argc)
+            else if (strcmp(argv[i], "--external-ip") == 0 && i + 1 < argc)
             {
-                strcpy(ip_number, argv[i + 1]);
+                strcpy(external_ip, argv[i + 1]);
                 i++; // Skip the next argument since it's the IP address
+            }
+            else if (strcmp(argv[i], "--external-port") == 0 && i + 1 < argc)
+            {
+                strcpy(external_port, argv[i + 1]);
+                i++; // Skip the next argument since it's the port number
             }
             else
             {
@@ -105,8 +118,10 @@ void show_help()
     puts("Opciones:");
     puts("  --help      Muestra este mensaje de ayuda");
     puts("  --version   Muestra version del programa");
-    puts("  --port <puerto> Especificar el número de puerto del servidor");
-    puts("  --ip <ip> Especificar el número de ip del servidor");
+    puts("  --local-ip <ip> Especificar el número de ip local");
+    puts("  --local-port <puerto> Especificar el número de puerto local");
+    puts("  --external-ip <ip> Especificar el número de ip externo");
+    puts("  --external-port <puerto> Especificar el número de puerto externo");
 }
 
 void show_version()
@@ -114,48 +129,65 @@ void show_version()
     printf("Heartbeat Client Version %s\n", VERSION);
 }
 
-Heartbeat_Data *setup_heartbeat_client(char *port_number, char *ip_number)
+Heartbeat_Data *setup_heartbeat_client(char *local_ip, char *local_port, char *external_ip, char *external_port)
 {
-    int gai_ret_val, local_port, sockfd;
-    char local_ip[INET_ADDRSTRLEN], their_ipstr[INET_ADDRSTRLEN];
+    int gai_ret_val, sockfd;
+    char ipv4_ipstr[INET_ADDRSTRLEN];
+    socklen_t yes;
     struct addrinfo *servinfo, *p;
-    struct sockaddr_in local_addr, *ipv4;
-    struct in_addr *their_addr;
-    socklen_t local_addr_len;
+    struct sockaddr_in *ipv4;
+    struct in_addr *ipv4_addr;
     struct addrinfo hints;
     Heartbeat_Data *heartbeat_data;
 
+    yes = 1;
     heartbeat_data = NULL;
 
+    // Bind to local ip and port
     // Setup addinfo
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET; // AF_INET to force version IPv4
     hints.ai_socktype = SOCK_DGRAM;
 
-    if ((gai_ret_val = getaddrinfo(ip_number, port_number, &hints, &servinfo)) != 0)
+    if ((gai_ret_val = getaddrinfo(local_ip, local_port, &hints, &servinfo)) != 0)
     {
         fprintf(stderr, "heartbeat_client: getaddrinfo: %s\n", gai_strerror(gai_ret_val));
         return NULL;
     }
 
-    puts("heartbeat_client: direcciones resueltas");
+    puts("heartbeat_client: direcciones locales resueltas");
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
         ipv4 = (struct sockaddr_in *)p->ai_addr;
-        their_addr = &(ipv4->sin_addr);
+        ipv4_addr = &(ipv4->sin_addr);
 
         // Convert the IP to a string and print it:
-        inet_ntop(p->ai_family, their_addr, their_ipstr, sizeof(their_ipstr));
-        printf("->  IPv4: %s\n", their_ipstr);
+        inet_ntop(p->ai_family, ipv4_addr, ipv4_ipstr, sizeof(ipv4_ipstr));
+        printf("->  IPv4: %s\n", ipv4_ipstr);
     }
 
-    // Loop through all the results and connect to the first we can
+    // Loop through all the results and bind to the first we can
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
                              p->ai_protocol)) == -1)
         {
             perror("heartbeat_client: socket");
+            continue;
+        }
+
+        // Ask the kernel to let me reuse the socket if already in use from previous run
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
+                       sizeof(int)) == -1)
+        {
+            perror("heartbeat_client: UDP setsockopt");
+            continue;
+        }
+
+        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
+        {
+            close(sockfd);
+            perror("heartbeat_client: UDP bind");
             continue;
         }
 
@@ -177,25 +209,64 @@ Heartbeat_Data *setup_heartbeat_client(char *port_number, char *ip_number)
         return NULL;
     }
 
+    // Get Server sockaddr
+    // Setup addinfo
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET; // AF_INET to force version IPv4
+    hints.ai_socktype = SOCK_DGRAM;
+
+    if ((gai_ret_val = getaddrinfo(external_ip, external_port, &hints, &servinfo)) != 0)
+    {
+        fprintf(stderr, "heartbeat_client: getaddrinfo: %s\n", gai_strerror(gai_ret_val));
+        return NULL;
+    }
+
+    puts("heartbeat_client: direcciones externas resueltas");
+    for (p = servinfo; p != NULL; p = p->ai_next)
+    {
+        ipv4 = (struct sockaddr_in *)p->ai_addr;
+        ipv4_addr = &(ipv4->sin_addr);
+
+        // Convert the IP to a string and print it:
+        inet_ntop(p->ai_family, ipv4_addr, ipv4_ipstr, sizeof(ipv4_ipstr));
+        printf("->  IPv4: %s\n", ipv4_ipstr);
+    }
+
+    // Verify if at least one of the results is not null
+    // show values and add them to struct
+    for (p = servinfo; p != NULL; p = p->ai_next)
+    {
+        if (p != NULL)
+        {
+            // Copy values into heartbeat_data
+            memcpy(&heartbeat_data->addr, &p->ai_addr, p->ai_addrlen);
+            heartbeat_data->addrlen = p->ai_addrlen;
+            break;
+        }
+    }
+
+    // Free addrinfo struct allocated memory
+    freeaddrinfo(servinfo);
+
+    if (p == NULL)
+    {
+        fprintf(stderr, "heartbeat_client: no pudo obtenerse un file descriptor\n");
+        return NULL;
+    }
+
+    // Show heartbeat_client ip and port
+    printf("heartbeat_client: dirección local %s:%s\n", local_ip, local_port);
+
     // Show server ip and port
     ipv4 = (struct sockaddr_in *)p->ai_addr;
-    their_addr = &(ipv4->sin_addr);
-    inet_ntop(p->ai_family, their_addr, their_ipstr, sizeof(their_ipstr));
+    ipv4_addr = &(ipv4->sin_addr);
+    inet_ntop(p->ai_family, ipv4_addr, ipv4_ipstr, sizeof(ipv4_ipstr));
 
-    printf("heartbeat_client: dirección destino %s:%s\n", their_ipstr, port_number);
+    printf("heartbeat_client: dirección destino %s:%d\n", ipv4_ipstr, ntohs(ipv4->sin_port));
 
     // Copy values into heartbeat_data
     memcpy(&heartbeat_data->addr, &p->ai_addr, p->ai_addrlen);
     heartbeat_data->addrlen = p->ai_addrlen;
-
-    // Show heartbeat_client ip and port
-    local_addr_len = sizeof(struct sockaddr_in);
-    // Returns the current address to which the socket sockfd is bound
-    getsockname(sockfd, (struct sockaddr *)&local_addr, &local_addr_len);
-    inet_ntop(local_addr.sin_family, &local_addr.sin_addr, local_ip, sizeof(local_ip));
-    local_port = ntohs(local_addr.sin_port);
-
-    printf("heartbeat_client: dirección local %s:%d\n", local_ip, local_port);
 
     return heartbeat_data;
 }

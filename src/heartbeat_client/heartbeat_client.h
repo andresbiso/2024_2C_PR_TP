@@ -12,15 +12,17 @@
 #include "../shared/common.h"
 
 // Constants
-#define DEFAULT_IP "127.0.0.1" // The ip heartbeat_client will be connecting to
-#define DEFAULT_PORT "3490"    // The port heartbeat_client will be connecting to
-#define PORTSTRLEN 6           // Enough to hold "65535" + '\0'
+#define EXTERNAL_IP "127.0.0.1"
+#define EXTERNAL_PORT "3491"
+#define LOCAL_IP "127.0.0.1"
+#define LOCAL_PORT "4000"
+#define PORTSTRLEN 6 // Enough to hold "65535" + '\0'
 #define VERSION "0.0.1"
 
 // Function prototypes
 int handle_connection(Heartbeat_Data *heartbeat_data);
-int parse_arguments(int argc, char *argv[], char *port_number, char *ip_number);
-Heartbeat_Data *setup_heartbeat_client(char *port_number, char *ip_number);
+int parse_arguments(int argc, char *argv[], char *local_ip, char *local_port, char *external_ip, char *external_port);
+Heartbeat_Data *setup_heartbeat_client(char *local_ip, char *local_port, char *external_ip, char *external_port);
 void show_help(void);
 void show_version(void);
 int set_heartbeat_timeout(int sockfd, time_t timeout_sec);
