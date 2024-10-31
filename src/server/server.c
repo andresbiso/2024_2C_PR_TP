@@ -807,7 +807,9 @@ void *handle_client_heartbeat_write(void *arg)
 
     if (heartbeat_data->packet == NULL)
     {
-        return NULL;
+        // we can't send ACK if we haven't got a Heartbeat message first
+        thread_result->value = THREAD_RESULT_EMPTY_PACKET;
+        pthread_exit((void *)thread_result);
     }
 
     puts("Thread Heartbeat: escritura comienzo");
