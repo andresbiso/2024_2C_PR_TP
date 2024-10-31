@@ -190,7 +190,8 @@ int setup_client(char *external_ip, char *external_port)
     getsockname(sockfd, (struct sockaddr *)&local_addr, &local_addr_len);
     inet_ntop(local_addr.sin_family, &local_addr.sin_addr, local_ip, sizeof(local_ip));
 
-    printf("client: dirección local %s:%d\n", local_ip, ntohs(local_addr.sin_port));
+    // No need for ntohs() for port number here since it is a local address
+    printf("client: dirección local %s:%d\n", local_ip, local_addr.sin_port);
 
     return sockfd;
 }
