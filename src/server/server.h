@@ -49,7 +49,7 @@ int setup_server_tcp(char *local_ip, char *local_port);
 Heartbeat_Data *setup_server_udp(char *local_ip, char *local_port);
 void show_help(void);
 void show_version(void);
-int create_client_tcp_data(Client_Tcp_Data *data, int sockfd, const char *ipstr, in_port_t port);
+Client_Tcp_Data *create_client_tcp_data(int sockfd, const char *ipstr, in_port_t port);
 Client_Tcp_Data **init_clients_tcp_data(int len);
 void free_clients_tcp_data(Client_Tcp_Data **clients, int len);
 void free_client_tcp_data(Client_Tcp_Data **client);

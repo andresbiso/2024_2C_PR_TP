@@ -404,7 +404,8 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
                               sizeof(their_ipstr));
                     their_port = ((struct sockaddr_in *)&their_addr)->sin_port;
 
-                    if (create_client_tcp_data(clients[new_fd], new_fd, their_ipstr, their_port) < 0)
+                    clients[new_fd] = create_client_tcp_data(new_fd, their_ipstr, their_port);
+                    if (clients[new_fd] == NULL)
                     {
                         ret_val = -1;
                         FD_CLR(new_fd, &master);
@@ -828,20 +829,28 @@ void *handle_client_heartbeat_write(void *arg)
     pthread_exit((void *)thread_result);
 }
 
-int create_client_tcp_data(Client_Tcp_Data *data, int sockfd, const char *ipstr, in_port_t port)
+Client_Tcp_Data *create_client_tcp_data(int sockfd, const char *ipstr, in_port_t port)
 {
-    if (data == NULL || sockfd <= 0 || ipstr == NULL || port <= 0)
+    Client_Tcp_Data *data;
+    if (sockfd <= 0 || ipstr == NULL || port <= 0)
     {
-        return -1;
+        return NULL;
     }
 
-    // Initialize allocated memory to zero
+    data = (Client_Tcp_Data *)malloc(sizeof(Client_Tcp_Data));
+    if (data == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        return NULL;
+    }
+    memset(data, 0, sizeof(Client_Tcp_Data));
+
     data->client_sockfd = sockfd;
     strcpy(data->client_ipstr, ipstr);
     data->client_port = port;
     data->packet = NULL;
 
-    return 0;
+    return data;
 }
 
 Client_Tcp_Data **init_clients_tcp_data(int len)

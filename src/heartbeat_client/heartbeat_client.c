@@ -272,6 +272,11 @@ int handle_connection(Heartbeat_Data *heartbeat_data)
     retries = 0;
     ret_value = 0;
 
+    if (set_heartbeat_timeout(heartbeat_data->sockfd, HEARTBEAT_TIMEOUT_SEC) < 0)
+    {
+        return -1;
+    }
+
     // Loop to send packet and wait for response, retry if necessary
     while (1)
     {
@@ -292,12 +297,6 @@ int handle_connection(Heartbeat_Data *heartbeat_data)
         }
         printf("heartbeat_client: mensaje enviado: %s - %ld\n", heartbeat_data->packet->message, heartbeat_data->packet->timestamp);
         free_heartbeat_packet(heartbeat_data->packet);
-
-        if (set_heartbeat_timeout(heartbeat_data->sockfd, HEARTBEAT_TIMEOUT_SEC) < 0)
-        {
-            ret_value = -1;
-            break;
-        }
 
         // Allocate memory for recv_packet
         heartbeat_data->packet = (Heartbeat_Packet *)malloc(sizeof(Heartbeat_Packet));
