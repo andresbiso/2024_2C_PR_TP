@@ -237,7 +237,7 @@ Heartbeat_Data *setup_heartbeat_client(char *local_ip, char *local_port, char *e
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
         // Copy values into heartbeat_data
-        memcpy(&heartbeat_data->addr, p->ai_addr, p->ai_addrlen);
+        memcpy(heartbeat_data->addr, p->ai_addr, p->ai_addrlen);
         heartbeat_data->addrlen = p->ai_addrlen;
         break;
     }
@@ -283,7 +283,7 @@ int handle_connection(Heartbeat_Data *heartbeat_data)
             break;
         }
 
-        bytes_sent = send_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, &heartbeat_data->addr, heartbeat_data->addrlen);
+        bytes_sent = send_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, heartbeat_data->addr, heartbeat_data->addrlen);
         if (bytes_sent < 0)
         {
             free_heartbeat_packet(heartbeat_data->packet);
@@ -307,7 +307,7 @@ int handle_connection(Heartbeat_Data *heartbeat_data)
             ret_value = -1;
             break;
         }
-        bytes_received = recv_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, &heartbeat_data->addr, &heartbeat_data->addrlen);
+        bytes_received = recv_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, heartbeat_data->addr, &heartbeat_data->addrlen);
 
         if (bytes_received > 0 && strcmp(heartbeat_data->packet->message, "ACK") == 0)
         {

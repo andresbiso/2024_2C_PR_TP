@@ -725,9 +725,15 @@ void *handle_client_heartbeat_read(void *arg)
     {
         free_heartbeat_packet(heartbeat_data->packet);
     }
-
+    // Create packet so that we can store the incoming packet
+    if ((heartbeat_data->packet = create_heartbeat_packet("")) == NULL)
+    {
+        fprintf(stderr, "server: error al crear packet\n");
+        thread_result->value = THREAD_RESULT_ERROR;
+        pthread_exit((void *)thread_result);
+    }
     // receive HEARTBEAT message from client
-    recv_val = recv_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, &heartbeat_data->addr, &heartbeat_data->addrlen);
+    recv_val = recv_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, heartbeat_data->addr, &heartbeat_data->addrlen);
     if (recv_val == 0)
     {
         fprintf(stderr, "server: conexión cerrada antes de recibir packet\n");
@@ -743,7 +749,7 @@ void *handle_client_heartbeat_read(void *arg)
         pthread_exit((void *)thread_result);
     }
 
-    client_ipv4 = (struct sockaddr_in *)&heartbeat_data->addr;
+    client_ipv4 = (struct sockaddr_in *)heartbeat_data->addr;
     client_addr = &(client_ipv4->sin_addr);
     inet_ntop(client_ipv4->sin_family, client_addr, client_ipstr, sizeof(client_ipstr));
 
@@ -800,14 +806,14 @@ void *handle_client_heartbeat_write(void *arg)
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
-        if (send_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, &heartbeat_data->addr, heartbeat_data->addrlen) < 0)
+        if (send_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, heartbeat_data->addr, heartbeat_data->addrlen) < 0)
         {
             fprintf(stderr, "server: error al enviar packet\n");
             free_heartbeat_packet(heartbeat_data->packet);
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
-        client_ipv4 = (struct sockaddr_in *)&heartbeat_data->addr;
+        client_ipv4 = (struct sockaddr_in *)heartbeat_data->addr;
         client_addr = &(client_ipv4->sin_addr);
         inet_ntop(client_ipv4->sin_family, client_addr, client_ipstr, sizeof(client_ipstr));
 

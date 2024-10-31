@@ -31,8 +31,8 @@ typedef struct
 typedef struct
 {
     int sockfd;
-    struct sockaddr addr; // Address structure
-    socklen_t addrlen;    // Address length
+    struct sockaddr *addr; // Address structure
+    socklen_t addrlen;     // Address length
     Heartbeat_Packet *packet;
 } Heartbeat_Data;
 

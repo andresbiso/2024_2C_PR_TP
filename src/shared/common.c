@@ -364,9 +364,13 @@ Heartbeat_Data *create_heartbeat_data(int sockfd)
     }
     memset(data, 0, sizeof(Heartbeat_Data));
 
+    data->addr = (struct sockaddr *)malloc(sizeof(struct sockaddr));
+    memset(data->addr, 0, sizeof(struct sockaddr));
+
     // Initialize allocated memory to zero
     data->sockfd = sockfd;
     data->packet = NULL;
+    data->addrlen = sizeof(data->addr);
 
     return data;
 }
@@ -379,6 +383,12 @@ void free_heartbeat_data(Heartbeat_Data *data)
         {
             close(data->sockfd);
         }
+
+        if (data->addr != NULL)
+        {
+            free(data->addr);
+        }
+
         free_heartbeat_packet(data->packet);
         free(data);
         data = NULL;
