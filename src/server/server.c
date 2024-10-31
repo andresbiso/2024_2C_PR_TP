@@ -596,11 +596,6 @@ void *handle_client_simple_read(void *arg)
 
     simulate_work();
 
-    if (client_data->packet != NULL)
-    {
-        free_simple_packet(client_data->packet);
-    }
-
     // receive initial message from client
     recv_val = recv_simple_packet(client_data->client_sockfd, &client_data->packet);
     if (recv_val == 0)
