@@ -342,7 +342,7 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
     FD_SET(heartbeat_data->sockfd, &master);
     max_fd = sockfd_tcp > heartbeat_data->sockfd ? sockfd_tcp : heartbeat_data->sockfd;
 
-    timeout.tv_sec = 2; // 2 seconds timeout
+    timeout.tv_sec = 1; // Wait for 1 seconds
     timeout.tv_usec = 0;
 
     clients = init_clients_tcp_data(MAX_CLIENTS);
@@ -359,208 +359,232 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
 
     // Main accept() loop
     stop = 0;
-    while (!stop)
+    while (stop == 0)
     {
         // Reset sets to master value
         read_fds = master;
         write_fds = master;
         except_fds = master;
 
+        // Because of UDP socket sometimes select return really fast
+        sleep(1); // Sleep for 1s before retry
+
         // First argument is always nfds = max_fd + 1
-        if ((select_ret = select(max_fd + 1, &read_fds, &write_fds, &except_fds, &timeout)) == -1)
+        select_ret = select(max_fd + 1, &read_fds, &write_fds, &except_fds, &timeout);
+        // if select_ret = 0 -> o I/O event happened within the specified timeout period
+        // if select_ret > 0 -> n file descriptors are ready
+        if (select_ret > 0)
+        {
+            for (i = 0; i <= max_fd && select_ret > 0; i++)
+            {
+                if (FD_ISSET(i, &read_fds))
+                {
+                    select_ret--;
+                    // if it is the TCP listening socket
+                    if (i == sockfd_tcp)
+                    {
+                        // handle new connection
+                        sin_size = sizeof(their_addr);
+                        if ((new_fd = accept(sockfd_tcp, &their_addr, &sin_size)) == -1)
+                        {
+                            ret_val = -1;
+                            perror("server: accept");
+                            break;
+                        }
+
+                        // Add new_fd to the master set
+                        FD_SET(new_fd, &master);
+                        // Update fdmax value
+                        if (new_fd > max_fd)
+                        {
+                            max_fd = new_fd;
+                        }
+
+                        inet_ntop(their_addr.sa_family,
+                                  &(((struct sockaddr_in *)&their_addr)->sin_addr),
+                                  their_ipstr,
+                                  sizeof(their_ipstr));
+                        their_port = ((struct sockaddr_in *)&their_addr)->sin_port;
+
+                        clients[new_fd] = create_client_tcp_data(new_fd, their_ipstr, their_port);
+                        if (clients[new_fd] == NULL)
+                        {
+                            ret_val = -1;
+                            FD_CLR(new_fd, &master);
+                            close(new_fd);
+                            break;
+                        }
+
+                        printf("server: obtuvo conexión de %s:%d\n", their_ipstr, their_port);
+                        continue;
+                    }
+                    // if it is the Heartbeat listening socket
+                    else if (i == heartbeat_data->sockfd)
+                    {
+                        // handle read
+                        if (pthread_create(&thread, &attr, handle_client_heartbeat_read, (void *)heartbeat_data) != 0)
+                        {
+                            perror("server: pthread_create");
+                            ret_val = -1;
+                            break;
+                        }
+
+                        pthread_join(thread, (void **)&thread_result);
+                        if (thread_result != NULL)
+                        {
+                            if (thread_result->value == THREAD_RESULT_ERROR)
+                            {
+                                perror("server: error en lectura");
+                                ret_val = -1;
+                                free(thread_result);
+                                break;
+                            }
+                            free(thread_result);
+                        }
+                        else
+                        {
+                            ret_val = -1;
+                            break;
+                        }
+                        continue;
+                    }
+                    else
+                    {
+                        // handle read
+                        if (pthread_create(&thread, &attr, handle_client_simple_read, (void *)clients[i]) != 0)
+                        {
+                            perror("server: pthread_create");
+                            ret_val = -1;
+                            free_client_tcp_data(&clients[i]);
+                            FD_CLR(i, &master);
+                            break;
+                        }
+
+                        pthread_join(thread, (void **)&thread_result);
+                        if (thread_result != NULL)
+                        {
+                            if (thread_result->value == THREAD_RESULT_ERROR)
+                            {
+                                perror("server: error en lectura");
+                                ret_val = -1;
+                                free_client_tcp_data(&clients[i]);
+                                FD_CLR(i, &master);
+                                free(thread_result);
+                                break;
+                            }
+                            else if (thread_result->value == THREAD_RESULT_CLOSED)
+                            {
+                                free_client_tcp_data(&clients[i]);
+                                FD_CLR(i, &master);
+                            }
+                            free(thread_result);
+                        }
+                        else
+                        {
+                            ret_val = -1;
+                            break;
+                        }
+                        continue;
+                    }
+                }
+                else if (FD_ISSET(i, &write_fds))
+                {
+                    select_ret--;
+                    // if it is the Heartbeat listening socket
+                    if (i == heartbeat_data->sockfd)
+                    {
+                        // handle write
+                        if (pthread_create(&thread, &attr, handle_client_heartbeat_write, (void *)heartbeat_data) != 0)
+                        {
+                            perror("server: pthread_create");
+                            ret_val = -1;
+                            break;
+                        }
+
+                        pthread_join(thread, (void **)&thread_result);
+                        if (thread_result != NULL)
+                        {
+                            if (thread_result->value == THREAD_RESULT_ERROR)
+                            {
+                                perror("server: error en escritura");
+                                ret_val = -1;
+                                free(thread_result);
+                                break;
+                            }
+                            free(thread_result);
+                        }
+                        else
+                        {
+                            ret_val = -1;
+                            break;
+                        }
+                        continue;
+                    }
+                    else
+                    {
+                        // handle write
+                        if (pthread_create(&thread, &attr, handle_client_simple_write, (void *)clients[i]) != 0)
+                        {
+                            perror("server: pthread_create");
+                            ret_val = -1;
+                            free_client_tcp_data(&clients[i]);
+                            FD_CLR(i, &master);
+                            break;
+                        }
+                        pthread_join(thread, (void **)&thread_result);
+                        if (thread_result != NULL)
+                        {
+                            if (thread_result->value == THREAD_RESULT_ERROR)
+                            {
+                                perror("server: error en escritura");
+                                ret_val = -1;
+                                free_client_tcp_data(&clients[i]);
+                                FD_CLR(i, &master);
+                                free(thread_result);
+                                break;
+                            }
+                            else if (thread_result->value == THREAD_RESULT_CLOSED)
+                            {
+                                free_client_tcp_data(&clients[i]);
+                                FD_CLR(i, &master);
+                            }
+                            free(thread_result);
+                        }
+                        else
+                        {
+                            ret_val = -1;
+                            break;
+                        }
+                        continue;
+                    }
+                }
+                else if (FD_ISSET(i, &except_fds))
+                {
+                    select_ret--;
+                    // handle exceptions on the socket
+                    perror("server: excepción en socket");
+                    if (i != sockfd_tcp && i != heartbeat_data->sockfd)
+                    {
+                        ret_val = -1;
+                        free_client_tcp_data(&clients[i]);
+                        FD_CLR(i, &master);
+                        break;
+                    }
+                    continue;
+                }
+            } // end for
+        } // end select_ret > 0
+        else if (select_ret < 0)
         {
             perror("server: select");
             ret_val = -1;
             break;
         }
 
-        for (i = 0; i <= max_fd; i++)
+        if (ret_val == -1)
         {
-            if (FD_ISSET(i, &read_fds))
-            {
-                // if it is the TCP listening socket
-                if (i == sockfd_tcp)
-                {
-                    // handle new connection
-                    sin_size = sizeof(their_addr);
-                    if ((new_fd = accept(sockfd_tcp, &their_addr, &sin_size)) == -1)
-                    {
-                        ret_val = -1;
-                        perror("server: accept");
-                        break;
-                    }
-
-                    // Add new_fd to the master set
-                    FD_SET(new_fd, &master);
-                    // Update fdmax value
-                    if (new_fd > max_fd)
-                    {
-                        max_fd = new_fd;
-                    }
-
-                    inet_ntop(their_addr.sa_family,
-                              &(((struct sockaddr_in *)&their_addr)->sin_addr),
-                              their_ipstr,
-                              sizeof(their_ipstr));
-                    their_port = ((struct sockaddr_in *)&their_addr)->sin_port;
-
-                    clients[new_fd] = create_client_tcp_data(new_fd, their_ipstr, their_port);
-                    if (clients[new_fd] == NULL)
-                    {
-                        ret_val = -1;
-                        FD_CLR(new_fd, &master);
-                        close(new_fd);
-                        break;
-                    }
-
-                    printf("server: obtuvo conexión de %s:%d\n", their_ipstr, their_port);
-                }
-                // if it is the Heartbeat listening socket
-                else if (i == heartbeat_data->sockfd)
-                {
-                    // handle read
-                    if (pthread_create(&thread, &attr, handle_client_heartbeat_read, (void *)heartbeat_data) != 0)
-                    {
-                        perror("server: pthread_create");
-                        ret_val = -1;
-                        break;
-                    }
-
-                    pthread_join(thread, (void **)&thread_result);
-                    if (thread_result != NULL)
-                    {
-                        if (thread_result->value == THREAD_RESULT_ERROR)
-                        {
-                            perror("server: error en lectura");
-                        }
-                        if (thread_result->value == THREAD_RESULT_ERROR || thread_result->value == THREAD_RESULT_CLOSED)
-                        {
-                            ret_val = -1;
-                        }
-                        free(thread_result);
-                    }
-                    else
-                    {
-                        ret_val = -1;
-                    }
-                    continue;
-                }
-                else
-                {
-                    // handle read
-                    if (pthread_create(&thread, &attr, handle_client_simple_read, (void *)clients[i]) != 0)
-                    {
-                        perror("server: pthread_create");
-                        ret_val = -1;
-                        free_client_tcp_data(&clients[i]);
-                        FD_CLR(i, &master);
-                        break;
-                    }
-
-                    pthread_join(thread, (void **)&thread_result);
-                    if (thread_result != NULL)
-                    {
-                        if (thread_result->value == THREAD_RESULT_ERROR)
-                        {
-                            perror("server: error en lectura");
-                        }
-                        if (thread_result->value == THREAD_RESULT_ERROR || thread_result->value == THREAD_RESULT_CLOSED)
-                        {
-                            ret_val = -1;
-                            free_client_tcp_data(&clients[i]);
-                            FD_CLR(i, &master);
-                        }
-                        free(thread_result);
-                    }
-                    else
-                    {
-                        ret_val = -1;
-                        free_client_tcp_data(&clients[i]);
-                        FD_CLR(i, &master);
-                    }
-                    continue;
-                }
-            }
-            else if (FD_ISSET(i, &write_fds))
-            {
-                // if it is the Heartbeat listening socket
-                if (i == heartbeat_data->sockfd)
-                {
-                    // handle write
-                    if (pthread_create(&thread, &attr, handle_client_heartbeat_write, (void *)heartbeat_data) != 0)
-                    {
-                        perror("server: pthread_create");
-                        ret_val = -1;
-                        break;
-                    }
-
-                    pthread_join(thread, (void **)&thread_result);
-                    if (thread_result != NULL)
-                    {
-                        if (thread_result->value == THREAD_RESULT_ERROR)
-                        {
-                            perror("server: error en escritura");
-                        }
-                        if (thread_result->value == THREAD_RESULT_ERROR || thread_result->value == THREAD_RESULT_CLOSED)
-                        {
-                            ret_val = -1;
-                        }
-                        free(thread_result);
-                    }
-                    else
-                    {
-                        ret_val = -1;
-                    }
-                    continue;
-                }
-                else
-                {
-                    // handle write
-                    if (pthread_create(&thread, &attr, handle_client_simple_write, (void *)clients[i]) != 0)
-                    {
-                        perror("server: pthread_create");
-                        ret_val = -1;
-                        free_client_tcp_data(&clients[i]);
-                        FD_CLR(i, &master);
-                        break;
-                    }
-                    pthread_join(thread, (void **)&thread_result);
-                    if (thread_result != NULL)
-                    {
-                        if (thread_result->value == THREAD_RESULT_ERROR)
-                        {
-                            perror("server: error en escritura");
-                        }
-                        if (thread_result->value == THREAD_RESULT_ERROR || thread_result->value == THREAD_RESULT_CLOSED)
-                        {
-                            ret_val = -1;
-                            free_client_tcp_data(&clients[i]);
-                            FD_CLR(i, &master);
-                        }
-                        free(thread_result);
-                    }
-                    else
-                    {
-                        ret_val = -1;
-                        free_client_tcp_data(&clients[i]);
-                        FD_CLR(i, &master);
-                    }
-                    continue;
-                }
-            }
-            else if (FD_ISSET(i, &except_fds))
-            {
-                // handle exceptions on the socket
-                perror("server: excepción en socket");
-                if (i != sockfd_tcp && i != heartbeat_data->sockfd)
-                {
-                    ret_val = -1;
-                    free_client_tcp_data(&clients[i]);
-                    FD_CLR(i, &master);
-                }
-                continue;
-            }
-        } // end for
+            stop = 1;
+        }
     } // end while
 
     // Cleanup after loop
