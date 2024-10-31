@@ -236,13 +236,10 @@ Heartbeat_Data *setup_heartbeat_client(char *local_ip, char *local_port, char *e
     // show values and add them to struct
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
-        if (p != NULL)
-        {
-            // Copy values into heartbeat_data
-            memcpy(&heartbeat_data->addr, &p->ai_addr, p->ai_addrlen);
-            heartbeat_data->addrlen = p->ai_addrlen;
-            break;
-        }
+        // Copy values into heartbeat_data
+        memcpy(&heartbeat_data->addr, p->ai_addr, p->ai_addrlen);
+        heartbeat_data->addrlen = p->ai_addrlen;
+        break;
     }
 
     // Free addrinfo struct allocated memory
@@ -263,10 +260,6 @@ Heartbeat_Data *setup_heartbeat_client(char *local_ip, char *local_port, char *e
     inet_ntop(p->ai_family, ipv4_addr, ipv4_ipstr, sizeof(ipv4_ipstr));
 
     printf("heartbeat_client: dirección destino %s:%d\n", ipv4_ipstr, ntohs(ipv4->sin_port));
-
-    // Copy values into heartbeat_data
-    memcpy(&heartbeat_data->addr, &p->ai_addr, p->ai_addrlen);
-    heartbeat_data->addrlen = p->ai_addrlen;
 
     return heartbeat_data;
 }
