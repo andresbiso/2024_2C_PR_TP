@@ -144,9 +144,9 @@ Recomiendo:
 
 ## ¿Cómo exponer un puerto de docker al host?
 
-1. Abrir a compose.yml
-2. Ir a ports
-3. Configurar HOST_PORT:CONTAINER_PORT
+1. Abrir a compose.yml.
+2. Ir a ports.
+3. Configurar HOST_PORT:CONTAINER_PORT.
 
 - Más información: https://docs.docker.com/compose/how-tos/networking/
 
