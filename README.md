@@ -136,11 +136,19 @@ Recomiendo:
 
 # :hammer: Levantar el proyecto <a name = "run_project"></a>
 
-## ¿Como solemos levantar el proyecto?
+## ¿Cómo levantar el proyecto?
 
-1. Levantamos en vscode el server.
+1. Levantamos en vscode el proyecto.
 2. Levantamos una terminal que corran nuestra docker image en un docker container.
-3. Dentro del docker container compilamos y corremos el cliente de nuestra aplicación.
+3. Dentro del docker container compilamos (make build) y corremos nuestra aplicación (./dist/<appname>).
+
+## ¿Cómo exponer un puerto de docker al host?
+
+1. Abrir a compose.yml
+2. Ir a ports
+3. Configurar HOST_PORT:CONTAINER_PORT
+
+- Más información: https://docs.docker.com/compose/how-tos/networking/
 
 ## Comandos útiles
 

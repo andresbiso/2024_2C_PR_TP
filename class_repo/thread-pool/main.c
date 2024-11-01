@@ -39,7 +39,7 @@ int getSemValue(sem_t *sem) {
 
         printf("%s\n", strerror(errno));
 
-        return NULL;
+        return 0;
     }
 
     return value;
@@ -57,7 +57,7 @@ void runnable(void *param) {
 
     sem_t *sem = (sem_t *) param;
 
-    sleep(randnum(2,10));
+    sleep(2);
 
     printf("end task...\n");
 
@@ -83,7 +83,7 @@ int main(int argc, const char * argv[]) {
 
     
     // create pool
-    threadpool_t *pool = threadpool_create(10, 10, 0);
+    threadpool_t *pool = threadpool_create(2, 2, 0);
     
     
     
