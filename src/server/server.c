@@ -24,7 +24,7 @@
 #include "server.h"
 
 volatile sig_atomic_t stop;
-// pthread_mutex_t lock;
+pthread_mutex_t lock;
 
 int main(int argc, char *argv[])
 {
@@ -37,11 +37,11 @@ int main(int argc, char *argv[])
     strcpy(local_port_tcp, LOCAL_PORT_TCP);
     strcpy(local_port_udp, LOCAL_PORT_UDP);
 
-    // if (pthread_mutex_init(&lock, NULL) != 0)
-    // {
-    //     perror("server: error en mutex init\n");
-    //     return EXIT_FAILURE;
-    // }
+    if (pthread_mutex_init(&lock, NULL) != 0)
+    {
+        perror("server: error en mutex init\n");
+        return EXIT_FAILURE;
+    }
 
     ret_val = parse_arguments(argc, argv, local_ip, local_port_tcp, local_port_udp);
     if (ret_val > 0)
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 
     close(sockfd_tcp);
     free_heartbeat_data(heartbeat_data);
-    // pthread_mutex_destroy(&lock);
+    pthread_mutex_destroy(&lock);
     puts("server: finalizando");
     return EXIT_SUCCESS;
 }
@@ -329,6 +329,7 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
     struct timeval timeout;
     Client_Tcp_Data **clients;
     Thread_Result *thread_result;
+    void *result;
 
     ret_val = 0;
 
@@ -429,7 +430,14 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
                             break;
                         }
 
-                        pthread_join(thread, (void **)&thread_result);
+                        if (pthread_join(thread, (void *)&result) != 0)
+                        {
+                            perror("server: pthread_join");
+                            ret_val = -1;
+                            break;
+                        }
+
+                        thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
                         {
                             if (thread_result->value == THREAD_RESULT_ERROR)
@@ -460,7 +468,17 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
                             break;
                         }
 
-                        pthread_join(thread, (void **)&thread_result);
+                        if (pthread_join(thread, (void *)&result) != 0)
+                        {
+                            perror("server: pthread_join");
+                            ret_val = -1;
+                            free_client_tcp_data(&clients[i]);
+                            FD_CLR(i, &master);
+                            break;
+                        }
+
+                        thread_result = (Thread_Result *)result;
+
                         if (thread_result != NULL)
                         {
                             if (thread_result->value == THREAD_RESULT_ERROR)
@@ -501,7 +519,14 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
                             break;
                         }
 
-                        pthread_join(thread, (void **)&thread_result);
+                        if (pthread_join(thread, (void *)&result) != 0)
+                        {
+                            perror("server: pthread_join");
+                            ret_val = -1;
+                            break;
+                        }
+
+                        thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
                         {
                             if (thread_result->value == THREAD_RESULT_ERROR)
@@ -531,7 +556,17 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
                             FD_CLR(i, &master);
                             break;
                         }
-                        pthread_join(thread, (void **)&thread_result);
+
+                        if (pthread_join(thread, (void *)&result) != 0)
+                        {
+                            perror("server: pthread_join");
+                            ret_val = -1;
+                            free_client_tcp_data(&clients[i]);
+                            FD_CLR(i, &master);
+                            break;
+                        }
+
+                        thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
                         {
                             if (thread_result->value == THREAD_RESULT_ERROR)
@@ -609,7 +644,9 @@ void *handle_client_simple_read(void *arg)
     }
 
     client_data = (Client_Tcp_Data *)arg;
+    pthread_mutex_lock(&lock); // Lock before malloc
     thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
+    pthread_mutex_unlock(&lock); // Unlock after malloc
     if (thread_result == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
@@ -657,7 +694,9 @@ void *handle_client_simple_write(void *arg)
     }
 
     client_data = (Client_Tcp_Data *)arg;
+    pthread_mutex_lock(&lock); // Lock before malloc
     thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
+    pthread_mutex_unlock(&lock); // Unlock after malloc
     if (thread_result == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
@@ -730,7 +769,9 @@ void *handle_client_heartbeat_read(void *arg)
     }
 
     heartbeat_data = (Heartbeat_Data *)arg;
+    pthread_mutex_lock(&lock); // Lock before malloc
     thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
+    pthread_mutex_unlock(&lock); // Unlock after malloc
     if (thread_result == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
@@ -798,7 +839,9 @@ void *handle_client_heartbeat_write(void *arg)
     }
 
     heartbeat_data = (Heartbeat_Data *)arg;
+    pthread_mutex_lock(&lock); // Lock before malloc
     thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
+    pthread_mutex_unlock(&lock); // Unlock after malloc
     if (thread_result == NULL)
     {
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
