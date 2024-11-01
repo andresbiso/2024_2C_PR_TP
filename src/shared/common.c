@@ -183,6 +183,8 @@ Simple_Packet *create_simple_packet_with_length(int32_t length)
     return packet;
 }
 
+// Important
+// Remember to nullify packet (packet = NULL) in its original location after freeing it
 int free_simple_packet(Simple_Packet *packet)
 {
     if (packet == NULL)
@@ -195,8 +197,7 @@ int free_simple_packet(Simple_Packet *packet)
         packet->data = NULL;
     }
     free(packet); // Free the packet struct itself
-    packet = NULL;
-    return 0; // Success
+    return 0;     // Success
 }
 
 ssize_t send_simple_packet(int sockfd, Simple_Packet *packet)

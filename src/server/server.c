@@ -478,7 +478,6 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
                         }
 
                         thread_result = (Thread_Result *)result;
-
                         if (thread_result != NULL)
                         {
                             if (thread_result->value == THREAD_RESULT_ERROR)
@@ -663,6 +662,7 @@ void *handle_client_simple_read(void *arg)
     {
         fprintf(stderr, "server: conexión cerrada antes de recibir packet\n");
         free_simple_packet(client_data->packet);
+        client_data->packet = NULL;
         thread_result->value = THREAD_RESULT_CLOSED;
         pthread_exit((void *)thread_result);
     }
@@ -670,6 +670,7 @@ void *handle_client_simple_read(void *arg)
     {
         fprintf(stderr, "server: error al recibir packet\n");
         free_simple_packet(client_data->packet);
+        client_data->packet = NULL;
         thread_result->value = THREAD_RESULT_ERROR;
         pthread_exit((void *)thread_result);
     }
@@ -711,6 +712,7 @@ void *handle_client_simple_write(void *arg)
     {
         puts("server: el mensaje contiene \"PING\"");
         free_simple_packet(client_data->packet);
+        client_data->packet = NULL;
         strcpy(message, "PONG");
         if ((client_data->packet = create_simple_packet(message)) == NULL)
         {
@@ -722,6 +724,7 @@ void *handle_client_simple_write(void *arg)
         {
             fprintf(stderr, "server: error al enviar packet\n");
             free_simple_packet(client_data->packet);
+            client_data->packet = NULL;
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
@@ -741,6 +744,7 @@ void *handle_client_simple_write(void *arg)
         {
             fprintf(stderr, "server: Error al enviar packet\n");
             free_simple_packet(client_data->packet);
+            client_data->packet = NULL;
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
@@ -947,7 +951,7 @@ void free_clients_tcp_data(Client_Tcp_Data **clients, int len)
 
 void free_client_tcp_data(Client_Tcp_Data **client)
 {
-    if (*client != NULL)
+    if (client != NULL && *client != NULL)
     {
         if ((*client)->client_sockfd > 0)
         {

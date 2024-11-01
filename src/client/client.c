@@ -216,17 +216,20 @@ int handle_connection(int sockfd)
     {
         fprintf(stderr, "client: conexión cerrada antes de recibir packet\n");
         free_simple_packet(recv_packet);
+        recv_packet = NULL;
         return 0;
     }
     else if (recv_val < 0)
     {
         fprintf(stderr, "client: error al recibir packet\n");
         free_simple_packet(recv_packet);
+        recv_packet = NULL;
         return -1;
     }
 
     printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
     free_simple_packet(recv_packet);
+    recv_packet = NULL;
 
     // send PING message
     strcpy(message, "PING");
@@ -239,26 +242,31 @@ int handle_connection(int sockfd)
     {
         fprintf(stderr, "client: error al enviar packet\n");
         free_simple_packet(send_packet);
+        send_packet = NULL;
         return -1;
     }
     printf("client: mensaje enviado: \"%s\"\n", send_packet->data);
     free_simple_packet(send_packet);
+    send_packet = NULL;
     // receive responmse message from server
     recv_val = recv_simple_packet(sockfd, &recv_packet);
     if (recv_val == 0)
     {
         fprintf(stderr, "client: conexión cerrada antes de recibir packet\n");
         free_simple_packet(recv_packet);
+        recv_packet = NULL;
         return 0;
     }
     else if (recv_val < 0)
     {
         fprintf(stderr, "client: error al recibir packet\n");
         free_simple_packet(recv_packet);
+        recv_packet = NULL;
         return -1;
     }
     printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
 
     free_simple_packet(recv_packet);
+    recv_packet = NULL;
     return 0;
 }
