@@ -28,12 +28,14 @@ pthread_mutex_t lock;
 
 int main(int argc, char *argv[])
 {
-    char local_ip[INET_ADDRSTRLEN], local_port_tcp[PORTSTRLEN], local_port_udp[PORTSTRLEN];
+    char local_ip[INET_ADDRSTRLEN], local_port_tcp[PORTSTRLEN],
+        local_port_tcp_http[PORTSTRLEN], local_port_udp[PORTSTRLEN];
     int ret_val;
-    int sockfd_tcp, sockfd_udp; // listen on these sockfd
+    int sockfd_tcp, sockfd_tcp_http, sockfd_udp; // listen on these sockfd
 
     strcpy(local_ip, LOCAL_IP);
     strcpy(local_port_tcp, LOCAL_PORT_TCP);
+    strcpy(local_port_tcp_http, LOCAL_PORT_TCP_HTTP);
     strcpy(local_port_udp, LOCAL_PORT_UDP);
 
     if (pthread_mutex_init(&lock, NULL) != 0)
@@ -42,7 +44,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    ret_val = parse_arguments(argc, argv, local_ip, local_port_tcp, local_port_udp);
+    ret_val = parse_arguments(argc, argv, local_ip, local_port_tcp, local_port_udp, local_port_tcp_http);
     if (ret_val > 0)
     {
         return EXIT_SUCCESS;
@@ -56,13 +58,18 @@ int main(int argc, char *argv[])
     {
         return EXIT_FAILURE;
     }
+    sockfd_tcp_http = setup_server_tcp(local_ip, local_port_tcp_http);
+    if (sockfd_tcp <= 0)
+    {
+        return EXIT_FAILURE;
+    }
     sockfd_udp = setup_server_udp(local_ip, local_port_udp);
     if (sockfd_udp <= 0)
     {
         return EXIT_FAILURE;
     }
     setup_signals();
-    ret_val = handle_connections(sockfd_tcp, sockfd_udp);
+    ret_val = handle_connections(sockfd_tcp, sockfd_udp, sockfd_tcp_http);
     if (ret_val < 0)
     {
         return EXIT_FAILURE;
@@ -75,7 +82,7 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-int parse_arguments(int argc, char *argv[], char *local_ip, char *local_port_tcp, char *local_port_udp)
+int parse_arguments(int argc, char *argv[], char *local_ip, char *local_port_tcp, char *local_port_udp, char *local_port_tcp_http)
 {
     int ret_val;
 
@@ -111,6 +118,11 @@ int parse_arguments(int argc, char *argv[], char *local_ip, char *local_port_tcp
                 strcpy(local_port_udp, argv[i + 1]);
                 i++; // Skip the next argument since it's the port number
             }
+            else if (strcmp(argv[i], "--local-port-tcp-http") == 0 && i + 1 < argc)
+            {
+                strcpy(local_port_tcp_http, argv[i + 1]);
+                i++; // Skip the next argument since it's the port number
+            }
             else
             {
                 printf("server: opción o argumento no soportado: %s\n", argv[i]);
@@ -132,6 +144,7 @@ void show_help()
     puts("  --local-ip <ip> Especificar el número de ip local");
     puts("  --local-port-tcp <puerto> Especificar el número de puerto tcp local");
     puts("  --local-port-udp <puerto> Especificar el número de puerto udp local");
+    puts("  --local-port-tcp-http <puerto> Especificar el número de puerto tcp http local");
 }
 
 void show_version()
@@ -308,7 +321,7 @@ int setup_server_udp(char *local_ip, char *local_port)
     return sockfd;
 }
 
-int handle_connections(int sockfd_tcp, int sockfd_udp)
+int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
 {
     char their_ipstr[INET_ADDRSTRLEN];
     int i, max_fd, new_fd, ret_val, their_port, select_ret;
@@ -333,7 +346,8 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
     // Add sockfd to the master set
     FD_SET(sockfd_tcp, &master);
     FD_SET(sockfd_udp, &master);
-    max_fd = sockfd_tcp > sockfd_udp ? sockfd_tcp : sockfd_udp;
+    FD_SET(sockfd_tcp_http, &master);
+    find_max(3, sockfd_tcp, sockfd_udp, sockfd_tcp_http);
 
     timeout.tv_sec = 1; // Wait for 1 seconds
     timeout.tv_usec = 0;

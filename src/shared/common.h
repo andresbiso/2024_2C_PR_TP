@@ -3,6 +3,7 @@
 
 // Standard library headers
 #include <stdint.h>
+#include <stdarg.h>
 #include <stddef.h>
 #include <time.h>
 
@@ -54,5 +55,6 @@ ssize_t recv_heartbeat_packet(int sockfd, Heartbeat_Packet *packet, struct socka
 Heartbeat_Data *create_heartbeat_data(int sockfd);
 void free_heartbeat_data(Heartbeat_Data *data);
 void simulate_work();
+int find_max(int num, ...);
 
 #endif // COMMON_H

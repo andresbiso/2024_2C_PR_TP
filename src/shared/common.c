@@ -1,5 +1,6 @@
 // Standard library headers
 #include <errno.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -400,4 +401,42 @@ void simulate_work()
     delay.tv_sec = 2; // 2 seconds
     delay.tv_nsec = 0;
     nanosleep(&delay, NULL);
+}
+
+/**
+ * Finds the maximum value among a variable number of integer arguments.
+ *
+ * @param num The number of arguments.
+ * @param ... A variable number of integer arguments.
+ *
+ * @return The maximum value among the provided arguments.
+ *
+ * Usage:
+ * int max_fd = find_max(3, sockfd_tcp, sockfd_udp, sockfd_third);
+ */
+int find_max(int num, ...)
+{
+    va_list valist;
+    int max;
+
+    // Initialize valist for num number of arguments
+    va_start(valist, num);
+
+    // Set the first element as the initial max
+    max = va_arg(valist, int);
+
+    // Loop through the remaining arguments to find the max
+    for (int i = 1; i < num; i++)
+    {
+        int current = va_arg(valist, int);
+        if (current > max)
+        {
+            max = current;
+        }
+    }
+
+    // Clean memory reserved for valist
+    va_end(valist);
+
+    return max;
 }

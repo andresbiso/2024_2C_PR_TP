@@ -25,13 +25,15 @@
 int main(int argc, char *argv[])
 {
     char external_ip[INET_ADDRSTRLEN], external_port[PORTSTRLEN];
-    int ret_val;
+    int mode, ret_val;
     int sockfd; // listen on sock_fd
 
     strcpy(external_ip, EXTERNAL_IP);
-    strcpy(external_port, EXTERNAL_PORT);
+    strcpy(external_ip, "");
 
-    ret_val = parse_arguments(argc, argv, external_ip, external_port);
+    mode = DEFAULT_MODE;
+
+    ret_val = parse_arguments(argc, argv, external_ip, external_port, mode);
     if (ret_val > 0)
     {
         return EXIT_SUCCESS;
@@ -40,12 +42,35 @@ int main(int argc, char *argv[])
     {
         return EXIT_FAILURE;
     }
+
+    // Assign default port
+    if (strcmp(external_port, "") == 0)
+    {
+        if (mode == 0)
+        {
+            strcpy(external_port, EXTERNAL_PORT);
+        }
+        else
+        {
+            strcpy(external_port, EXTERNAL_PORT_HTTP);
+        }
+    }
+
     sockfd = setup_client(external_ip, external_port);
     if (sockfd <= 0)
     {
         return EXIT_FAILURE;
     }
-    ret_val = handle_connection(sockfd);
+
+    if (mode == 0)
+    {
+        ret_val = handle_connection(sockfd);
+    }
+    else
+    {
+        ret_val = handle_connection_http(sockfd);
+    }
+
     if (ret_val < 0)
     {
         return EXIT_FAILURE;
@@ -56,7 +81,7 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-int parse_arguments(int argc, char *argv[], char *external_ip, char *external_port)
+int parse_arguments(int argc, char *argv[], char *external_ip, char *external_port, int mode)
 {
     int ret_val;
 
@@ -87,6 +112,21 @@ int parse_arguments(int argc, char *argv[], char *external_ip, char *external_po
                 strcpy(external_port, argv[i + 1]);
                 i++; // Skip the next argument since it's the port number
             }
+            else if (strcmp(argv[i], "--http-mode") == 0 && i + 1 < argc)
+            {
+                if (strcmp(argv[i + 1], "0") == 0 || strcmp(argv[i + 1], "1") == 0)
+                {
+                    mode = atoi(argv[i + 1]);
+                    i++; // Skip the next argument since it's the port number
+                }
+                else
+                {
+                    printf("cliente: --mode valor debe ser 0 o 1\n");
+                    show_help();
+                    ret_val = -1;
+                    break;
+                }
+            }
             else
             {
                 printf("client: opción o argumento no soportado: %s\n", argv[i]);
@@ -105,8 +145,9 @@ void show_help()
     puts("Opciones:");
     puts("  --help      Muestra este mensaje de ayuda");
     puts("  --version   Muestra version del programa");
-    puts("  --external-ip <ip> Especificar el número de ip externp");
+    puts("  --external-ip <ip> Especificar el número de ip externo");
     puts("  --external-port <puerto> Especificar el número de puerto externo");
+    puts("  --mode <0|1>          0: modo test; 1: modo http; (Default: modo test)");
 }
 
 void show_version()
@@ -265,6 +306,25 @@ int handle_connection(int sockfd)
         return -1;
     }
     printf("client: mensaje recibido: \"%s\"\n", recv_packet->data);
+
+    free_simple_packet(recv_packet);
+    recv_packet = NULL;
+    return 0;
+}
+
+int handle_connection_http(int sockfd)
+{
+    char message[DEFAULT_BUFFER_SIZE];
+    ssize_t recv_val;
+    Simple_Packet *send_packet, *recv_packet;
+
+    send_packet = NULL;
+    recv_packet = NULL;
+
+    if (sockfd <= 0)
+    {
+        return -1;
+    }
 
     free_simple_packet(recv_packet);
     recv_packet = NULL;
