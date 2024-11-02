@@ -30,8 +30,7 @@ int main(int argc, char *argv[])
 {
     char local_ip[INET_ADDRSTRLEN], local_port_tcp[PORTSTRLEN], local_port_udp[PORTSTRLEN];
     int ret_val;
-    int sockfd_tcp; // listen on these sockfd
-    Heartbeat_Data *heartbeat_data;
+    int sockfd_tcp, sockfd_udp; // listen on these sockfd
 
     strcpy(local_ip, LOCAL_IP);
     strcpy(local_port_tcp, LOCAL_PORT_TCP);
@@ -57,20 +56,20 @@ int main(int argc, char *argv[])
     {
         return EXIT_FAILURE;
     }
-    heartbeat_data = setup_server_udp(local_ip, local_port_udp);
-    if (heartbeat_data == NULL)
+    sockfd_udp = setup_server_udp(local_ip, local_port_udp);
+    if (sockfd_udp <= 0)
     {
         return EXIT_FAILURE;
     }
     setup_signals();
-    ret_val = handle_connections(sockfd_tcp, heartbeat_data);
+    ret_val = handle_connections(sockfd_tcp, sockfd_udp);
     if (ret_val < 0)
     {
         return EXIT_FAILURE;
     }
 
     close(sockfd_tcp);
-    free_heartbeat_data(heartbeat_data);
+    close(sockfd_udp);
     pthread_mutex_destroy(&lock);
     puts("server: finalizando");
     return EXIT_SUCCESS;
@@ -228,7 +227,7 @@ int setup_server_tcp(char *local_ip, char *local_port)
     return sockfd;
 }
 
-Heartbeat_Data *setup_server_udp(char *local_ip, char *local_port)
+int setup_server_udp(char *local_ip, char *local_port)
 {
     int gai_ret_val, sockfd;
     char ipv4_ipstr[INET_ADDRSTRLEN];
@@ -236,10 +235,8 @@ Heartbeat_Data *setup_server_udp(char *local_ip, char *local_port)
     struct sockaddr_in *ipv4;
     struct in_addr *ipv4_addr;
     socklen_t yes;
-    Heartbeat_Data *data;
 
     yes = 1;
-    data = NULL;
 
     // Setup addinfo
     memset(&hints, 0, sizeof hints);
@@ -249,7 +246,7 @@ Heartbeat_Data *setup_server_udp(char *local_ip, char *local_port)
     if ((gai_ret_val = getaddrinfo(local_ip, local_port, &hints, &servinfo)) != 0)
     {
         fprintf(stderr, "server: UDP getaddrinfo: %s\n", gai_strerror(gai_ret_val));
-        return NULL;
+        return -1;
     }
 
     puts("server: UDP direcciones resueltas");
@@ -297,13 +294,7 @@ Heartbeat_Data *setup_server_udp(char *local_ip, char *local_port)
     if (p == NULL)
     {
         fprintf(stderr, "server: UDP no pudo realizarse el bind\n");
-        return NULL;
-    }
-
-    data = create_heartbeat_data(sockfd);
-    if (data == NULL)
-    {
-        return NULL;
+        return -1;
     }
 
     // Show listening ip and port
@@ -314,10 +305,10 @@ Heartbeat_Data *setup_server_udp(char *local_ip, char *local_port)
     printf("server: UDP %s:%d\n", ipv4_ipstr, ntohs(ipv4->sin_port));
     puts("server: UDP esperando conexiones...");
 
-    return data;
+    return sockfd;
 }
 
-int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
+int handle_connections(int sockfd_tcp, int sockfd_udp)
 {
     char their_ipstr[INET_ADDRSTRLEN];
     int i, max_fd, new_fd, ret_val, their_port, select_ret;
@@ -327,6 +318,7 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
     socklen_t sin_size;
     struct sockaddr their_addr; // connector's address information
     struct timeval timeout;
+    Heartbeat_Data *heartbeat_data;
     Client_Tcp_Data **clients;
     Thread_Result *thread_result;
     void *result;
@@ -340,15 +332,22 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
     FD_ZERO(&except_fds);
     // Add sockfd to the master set
     FD_SET(sockfd_tcp, &master);
-    FD_SET(heartbeat_data->sockfd, &master);
-    max_fd = sockfd_tcp > heartbeat_data->sockfd ? sockfd_tcp : heartbeat_data->sockfd;
+    FD_SET(sockfd_udp, &master);
+    max_fd = sockfd_tcp > sockfd_udp ? sockfd_tcp : sockfd_udp;
 
     timeout.tv_sec = 1; // Wait for 1 seconds
     timeout.tv_usec = 0;
 
+    heartbeat_data = create_heartbeat_data(sockfd_udp);
+    if (heartbeat_data == NULL)
+    {
+        return -1;
+    }
+
     clients = init_clients_tcp_data(MAX_CLIENTS);
     if (clients == NULL)
     {
+        free_heartbeat_data(heartbeat_data);
         return -1;
     }
 
@@ -626,6 +625,7 @@ int handle_connections(int sockfd_tcp, Heartbeat_Data *heartbeat_data)
     FD_ZERO(&read_fds);
     FD_ZERO(&write_fds);
     FD_ZERO(&except_fds);
+    free_heartbeat_data(heartbeat_data);
     free_clients_tcp_data(clients, MAX_CLIENTS);
     pthread_attr_destroy(&attr);
     return ret_val;
@@ -865,6 +865,8 @@ void *handle_client_heartbeat_write(void *arg)
     puts("Thread Heartbeat: escritura comienzo");
 
     simulate_work();
+    printf("%p\n", heartbeat_data->packet);
+    printf("%s\n", heartbeat_data->packet->message);
 
     // send ACK message
     if (heartbeat_data->packet != NULL && strstr(heartbeat_data->packet->message, "HEARTBEAT") != NULL)

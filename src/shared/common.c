@@ -381,16 +381,11 @@ void free_heartbeat_data(Heartbeat_Data *data)
 {
     if (data != NULL)
     {
-        if (data->sockfd > 0)
-        {
-            close(data->sockfd);
-        }
-
         if (data->addr != NULL)
         {
             free(data->addr);
+            data->addr = NULL;
         }
-
         free_heartbeat_packet(data->packet);
         data->packet = NULL;
         free(data);
