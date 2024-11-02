@@ -45,6 +45,7 @@
     "pthread.h": "c",
     "errno.h": "c",
     "compare": "c",
-    "mutex": "c"
+    "mutex": "c",
+    "cstring": "c"
   }
 }

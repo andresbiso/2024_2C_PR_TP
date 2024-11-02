@@ -348,6 +348,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp)
     if (clients == NULL)
     {
         free_heartbeat_data(heartbeat_data);
+        heartbeat_data = NULL;
         return -1;
     }
 
@@ -773,6 +774,7 @@ void *handle_client_heartbeat_read(void *arg)
     }
 
     heartbeat_data = (Heartbeat_Data *)arg;
+
     pthread_mutex_lock(&lock); // Lock before malloc
     thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
     pthread_mutex_unlock(&lock); // Unlock after malloc
@@ -862,40 +864,45 @@ void *handle_client_heartbeat_write(void *arg)
         pthread_exit((void *)thread_result);
     }
 
+    // If server already received a packet from the client and it wasn't a Heartbeat
+    if (heartbeat_data->packet != NULL && strstr(heartbeat_data->packet->message, "HEARTBEAT") == NULL)
+    {
+        thread_result->value = THREAD_RESULT_SUCCESS;
+        pthread_exit((void *)thread_result);
+    }
+
     puts("Thread Heartbeat: escritura comienzo");
 
     simulate_work();
-    printf("%p\n", heartbeat_data->packet);
-    printf("%s\n", heartbeat_data->packet->message);
 
     // send ACK message
-    if (heartbeat_data->packet != NULL && strstr(heartbeat_data->packet->message, "HEARTBEAT") != NULL)
+    puts("server: el mensaje contiene \"HEARTBEAT\"");
+    free_heartbeat_packet(heartbeat_data->packet);
+    heartbeat_data->packet = NULL;
+    strcpy(message, "ACK");
+    if ((heartbeat_data->packet = create_heartbeat_packet(message)) == NULL)
     {
-        puts("server: el mensaje contiene \"HEARTBEAT\"");
+        fprintf(stderr, "server: error al crear packet\n");
+        thread_result->value = THREAD_RESULT_ERROR;
+        pthread_exit((void *)thread_result);
+    }
+    if (send_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, heartbeat_data->addr, heartbeat_data->addrlen) < 0)
+    {
+        fprintf(stderr, "server: error al enviar packet\n");
         free_heartbeat_packet(heartbeat_data->packet);
         heartbeat_data->packet = NULL;
-        strcpy(message, "ACK");
-        if ((heartbeat_data->packet = create_heartbeat_packet(message)) == NULL)
-        {
-            fprintf(stderr, "server: error al crear packet\n");
-            thread_result->value = THREAD_RESULT_ERROR;
-            pthread_exit((void *)thread_result);
-        }
-        if (send_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, heartbeat_data->addr, heartbeat_data->addrlen) < 0)
-        {
-            fprintf(stderr, "server: error al enviar packet\n");
-            free_heartbeat_packet(heartbeat_data->packet);
-            heartbeat_data->packet = NULL;
-            thread_result->value = THREAD_RESULT_ERROR;
-            pthread_exit((void *)thread_result);
-        }
-        client_ipv4 = (struct sockaddr_in *)heartbeat_data->addr;
-        client_addr = &(client_ipv4->sin_addr);
-        inet_ntop(client_ipv4->sin_family, client_addr, client_ipstr, sizeof(client_ipstr));
-
-        printf("server: mensaje al cliente: %s:%d\n", client_ipstr, ntohs(client_ipv4->sin_port));
-        printf("server: mensaje enviado: %s - %ld\n", heartbeat_data->packet->message, heartbeat_data->packet->timestamp);
+        thread_result->value = THREAD_RESULT_ERROR;
+        pthread_exit((void *)thread_result);
     }
+    client_ipv4 = (struct sockaddr_in *)heartbeat_data->addr;
+    client_addr = &(client_ipv4->sin_addr);
+    inet_ntop(client_ipv4->sin_family, client_addr, client_ipstr, sizeof(client_ipstr));
+
+    printf("server: mensaje al cliente: %s:%d\n", client_ipstr, ntohs(client_ipv4->sin_port));
+    printf("server: mensaje enviado: %s - %ld\n", heartbeat_data->packet->message, heartbeat_data->packet->timestamp);
+
+    free_heartbeat_packet(heartbeat_data->packet);
+    heartbeat_data->packet = NULL;
 
     // Print completion message
     puts("Thread Heartbeat: escritura fin");
