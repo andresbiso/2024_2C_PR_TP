@@ -305,6 +305,8 @@ Heartbeat_Packet *create_heartbeat_packet(const char *message)
     return packet;
 }
 
+// Important
+// Remember to nullify packet (packet = NULL) in its original location after freeing it
 int free_heartbeat_packet(Heartbeat_Packet *packet)
 {
     if (packet == NULL)
@@ -312,8 +314,7 @@ int free_heartbeat_packet(Heartbeat_Packet *packet)
         return -1; // Error: Packet is NULL
     }
     free(packet); // Free the packet struct itself
-    packet = NULL;
-    return 0; // Success
+    return 0;     // Success
 }
 
 ssize_t send_heartbeat_packet(int sockfd, Heartbeat_Packet *packet, const struct sockaddr *dest_addr, socklen_t addrlen)
@@ -391,6 +392,7 @@ void free_heartbeat_data(Heartbeat_Data *data)
         }
 
         free_heartbeat_packet(data->packet);
+        data->packet = NULL;
         free(data);
         data = NULL;
     }

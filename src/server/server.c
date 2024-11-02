@@ -789,6 +789,7 @@ void *handle_client_heartbeat_read(void *arg)
     if (heartbeat_data->packet != NULL)
     {
         free_heartbeat_packet(heartbeat_data->packet);
+        heartbeat_data->packet = NULL;
     }
     // Create packet so that we can store the incoming packet
     if ((heartbeat_data->packet = create_heartbeat_packet("")) == NULL)
@@ -803,6 +804,7 @@ void *handle_client_heartbeat_read(void *arg)
     {
         fprintf(stderr, "server: conexión cerrada antes de recibir packet\n");
         free_heartbeat_packet(heartbeat_data->packet);
+        heartbeat_data->packet = NULL;
         thread_result->value = THREAD_RESULT_CLOSED;
         pthread_exit((void *)thread_result);
     }
@@ -810,6 +812,7 @@ void *handle_client_heartbeat_read(void *arg)
     {
         fprintf(stderr, "server: error al recibir packet\n");
         free_heartbeat_packet(heartbeat_data->packet);
+        heartbeat_data->packet = NULL;
         thread_result->value = THREAD_RESULT_ERROR;
         pthread_exit((void *)thread_result);
     }
@@ -868,6 +871,7 @@ void *handle_client_heartbeat_write(void *arg)
     {
         puts("server: el mensaje contiene \"HEARTBEAT\"");
         free_heartbeat_packet(heartbeat_data->packet);
+        heartbeat_data->packet = NULL;
         strcpy(message, "ACK");
         if ((heartbeat_data->packet = create_heartbeat_packet(message)) == NULL)
         {
@@ -879,6 +883,7 @@ void *handle_client_heartbeat_write(void *arg)
         {
             fprintf(stderr, "server: error al enviar packet\n");
             free_heartbeat_packet(heartbeat_data->packet);
+            heartbeat_data->packet = NULL;
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }

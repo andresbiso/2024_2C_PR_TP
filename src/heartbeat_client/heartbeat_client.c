@@ -292,11 +292,13 @@ int handle_connection(Heartbeat_Data *heartbeat_data)
         if (bytes_sent < 0)
         {
             free_heartbeat_packet(heartbeat_data->packet);
+            heartbeat_data->packet = NULL;
             ret_value = -1;
             break;
         }
         printf("heartbeat_client: mensaje enviado: %s - %ld\n", heartbeat_data->packet->message, heartbeat_data->packet->timestamp);
         free_heartbeat_packet(heartbeat_data->packet);
+        heartbeat_data->packet = NULL;
 
         // Allocate memory for recv_packet
         heartbeat_data->packet = (Heartbeat_Packet *)malloc(sizeof(Heartbeat_Packet));
@@ -312,6 +314,7 @@ int handle_connection(Heartbeat_Data *heartbeat_data)
         {
             printf("heartbeat_client: mensaje recibido: %s - %ld\n", heartbeat_data->packet->message, heartbeat_data->packet->timestamp);
             free_heartbeat_packet(heartbeat_data->packet);
+            heartbeat_data->packet = NULL;
             retries = 0; // Reset retries on successful response
         }
         else
