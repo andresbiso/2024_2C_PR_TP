@@ -130,7 +130,7 @@ int serialize_headers(const Header *headers, int header_count, char **buffer)
 {
     const char *key_value_separator;
     const char *line_ending;
-    int i, extra_char_size, size;
+    int i, size;
 
     key_value_separator = ": ";
     line_ending = "\r\n";
@@ -166,12 +166,14 @@ int serialize_headers(const Header *headers, int header_count, char **buffer)
 
 Header *deserialize_headers(const char *headers_str, int *header_count)
 {
-    int count;
+    int count, header_index, initial_count;
+    char *colon, *headers_copy, *key, *line, *value;
     const char *temp_str;
+    Header *headers;
 
+    // Count the number of headers
     count = 0;
     temp_str = headers_str;
-
     while (*temp_str)
     {
         if (*temp_str == '\r' || *temp_str == '\n')
@@ -186,35 +188,49 @@ Header *deserialize_headers(const char *headers_str, int *header_count)
         }
     }
 
-    Header *headers = (Header *)malloc(count * sizeof(Header));
+    // Create initial headers array
+    initial_count = count > 0 ? count : 1; // Ensure at least one slot
+    headers = create_headers(initial_count);
     if (headers == NULL)
     {
-        fprintf(stderr, "Error al asignar memoria\n");
         return NULL;
     }
 
-    char *headers_copy = (char *)malloc(strlen(headers_str) + 1);
+    // Copy headers_str to a temporary buffer
+    headers_copy = (char *)malloc(strlen(headers_str) + 1);
+    if (headers_copy == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria\n");
+        free(headers);
+        return NULL;
+    }
     strcpy(headers_copy, headers_str);
 
-    char *line = strtok(headers_copy, "\r\n"); // Tokenize the headers_copy string, separating by "\r\n"
-    for (int i = 0; i < count; i++)
+    // Tokenize and parse each header
+    line = strtok(headers_copy, "\r\n");
+    header_index = 0;
+    *header_count = initial_count;
+    while (line != NULL)
     {
-        // Finds the first occurrence of ':' in the current line
-        char *colon = strchr(line, ':');
+        colon = strchr(line, ':');
         if (colon != NULL)
         {
-            *colon = '\0';                                     // Replace ':' with '\0' to terminate the key string
-            headers[i].key = (char *)malloc(strlen(line) + 1); // Allocate memory for the key
-            strcpy(headers[i].key, line);                      // Copy the key to headers[i].key
+            *colon = '\0'; // Terminate the key string
+            key = line;
+            value = colon + 2; // Skip ": " to get the value
 
-            // colon + 2 points directly to the start of the value string
-            headers[i].value = (char *)malloc(strlen(colon + 2) + 1); // Allocate memory for the value
-            strcpy(headers[i].value, colon + 2);                      // Copy the value to headers[i].value
+            if (add_header(&headers, &header_index, header_count, key, value) != 0)
+            {
+                free(headers_copy);
+                free_headers(&headers, *header_count);
+                return NULL;
+            }
         }
-        line = strtok(NULL, "\r\n"); // Continue tokenizing the rest of the headers_copy string
+        line = strtok(NULL, "\r\n");
     }
+
     free(headers_copy);
-    *header_count = count;
+    *header_count = header_index;
     return headers;
 }
 
@@ -317,7 +333,7 @@ void free_http_request(HTTP_Request *request)
         {
             free(request->request_line.version);
         }
-        free_headers(request->headers, request->header_count);
+        free_headers(&(request->headers), request->header_count);
         if (request->body != NULL)
         {
             free(request->body);
@@ -326,25 +342,28 @@ void free_http_request(HTTP_Request *request)
     }
 }
 
-int serialize_http_request(HTTP_Request *request, char **buffer)
+int serialize_http_request_header(HTTP_Request *request, char **buffer)
 {
-    const char *key_value_separator;
     const char *line_ending;
     const char *space;
-    int i, extra_char_size, size;
+    char *headers_buffer;
+    int size_buffer, size_headers_buffer;
 
-    key_value_separator = ": ";
     line_ending = "\r\n";
     space = " ";
 
-    size = strlen(request->request_line.method) + strlen(request->request_line.uri) + strlen(request->request_line.version) + strlen(space) * 2 + strlen(line_ending);
-    for (i = 0; i < request->header_count; i++)
+    size_headers_buffer = serialize_headers(request->headers, request->header_count, &headers_buffer);
+    if (size_headers_buffer < 0)
     {
-        size += strlen(request->headers[i].key) + strlen(request->headers[i].value) + strlen(key_value_separator) + strlen(line_ending);
+        fprintf(stderr, "Error al serializar headers\n");
+        return -1;
     }
-    size += strlen(line_ending); // For \r\n after headers
 
-    *buffer = (char *)malloc(size * sizeof(char));
+    size_buffer = strlen(request->request_line.method) + strlen(request->request_line.uri) + strlen(request->request_line.version) + strlen(space) * 2 + strlen(line_ending);
+    size_buffer += size_headers_buffer;
+    size_buffer += strlen(line_ending); // For \r\n after headers
+
+    *buffer = (char *)malloc(size_buffer * sizeof(char));
     if (*buffer == NULL)
     {
         fprintf(stderr, "Error al asignar memoria\n");
@@ -352,24 +371,22 @@ int serialize_http_request(HTTP_Request *request, char **buffer)
     }
 
     sprintf(*buffer, "%s %s %s%s", request->request_line.method, request->request_line.uri, request->request_line.version, line_ending);
-    for (i = 0; i < request->header_count; i++)
-    {
-        strcat(*buffer, request->headers[i].key);
-        strcat(*buffer, key_value_separator);
-        strcat(*buffer, request->headers[i].value);
-        strcat(*buffer, line_ending);
-    }
+    strcat(*buffer, headers_buffer);
     strcat(*buffer, line_ending);
 
-    return size;
+    return size_buffer;
 }
 
-HTTP_Request *deserialize_http_request(const char *buffer)
+HTTP_Request *deserialize_http_request_header(const char *buffer)
 {
     char method[METHOD_SIZE], uri[URI_SIZE], version[VERSION_SIZE];
-    char *body_start, *key, *line, *temp_buffer, *value;
-    int header_index;
+    char *line, *temp_buffer;
+    char *header_end_ptr, *headers_part;
+    const char *line_ending;
+    int header_length;
     HTTP_Request *request;
+
+    line_ending = "\r\n";
 
     request = (HTTP_Request *)malloc(sizeof(HTTP_Request));
     if (request == NULL)
@@ -399,50 +416,39 @@ HTTP_Request *deserialize_http_request(const char *buffer)
     request->request_line.version = (char *)malloc(strlen(version) + 1);
     strcpy(request->request_line.version, version);
 
-    request->header_count = 0;
-    request->headers = create_headers(INITIAL_HEADER_COUNT); // Initial allocation for headers
-
-    line = strtok(NULL, "\r\n");
-    header_index = 0;
-    while (line != NULL && line[0] != '\0')
+    // Find the end of headers, marked by \r\n\r\n
+    header_end_ptr = strstr(temp_buffer, "\r\n\r\n");
+    if (header_end_ptr == NULL)
     {
-        if (line[0] == '\0')
-        {
-            // Blank line indicates the end of headers
-            // Blank line between headers and body
-            break;
-        }
-        key = strtok(line, ": ");
-        value = strtok(NULL, "\r\n");
-        if (add_header(&(request->headers), &header_index, &(request->header_count), key, value) != 0)
-        {
-            fprintf(stderr, "Error al agregar header\n");
-            free_headers(&(request->headers), request->header_count);
-            free(request->request_line.method);
-            free(request->request_line.uri);
-            free(request->request_line.version);
-            free(request);
-            free(temp_buffer);
-            return NULL;
-        }
-        line = strtok(NULL, "\r\n");
-    }
-    // Process body
-    body_start = strtok(NULL, "");
-    request->body = (char *)malloc(strlen(body_start) + 1);
-    if (request->body == NULL)
-    {
-        fprintf(stderr, "Error al asignar memoria para el body\n");
-        free_headers(&(request->headers), request->header_count);
-        free(request->request_line.method);
-        free(request->request_line.uri);
-        free(request->request_line.version);
-        free(request);
+        fprintf(stderr, "Formato inválido de HTTP request\n");
         free(temp_buffer);
+        free_http_request(request);
         return NULL;
     }
-    strcpy(request->body, body_start);
 
+    header_length = header_end_ptr - temp_buffer + (strlen(line_ending) * 2); // move past \r\n\r\n
+    headers_part = (char *)malloc((header_length + 1) * sizeof(char));
+    if (headers_part == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria para headers_part\n");
+        free(temp_buffer);
+        free_http_request(request);
+        return NULL;
+    }
+    strncpy(headers_part, temp_buffer, header_length);
+    headers_part[header_length] = '\0';
+
+    // Use the deserialize_headers function
+    request->headers = deserialize_headers(headers_part, &request->header_count);
+    if (request->headers == NULL)
+    {
+        free(headers_part);
+        free(temp_buffer);
+        free_http_request(request);
+        return NULL;
+    }
+
+    free(headers_part);
     free(temp_buffer);
     return request;
 }
@@ -450,8 +456,10 @@ HTTP_Request *deserialize_http_request(const char *buffer)
 int send_http_request(int sockfd, HTTP_Request *request)
 {
     char *buffer;
+    int size;
+
     // Serialize request line and headers
-    int size = serialize_http_request(request, &buffer);
+    size = serialize_http_request_header(request, &buffer);
     if (size < 0)
     {
         return -1;
@@ -470,7 +478,7 @@ int send_http_request(int sockfd, HTTP_Request *request)
     if (request->body != NULL)
     {
         int body_len = strlen(request->body);
-        if (send_all(sockfd, request->body, body_len) < 0)
+        if (sendall(sockfd, request->body, body_len) < 0)
         {
             perror("send body");
             return -1;
@@ -483,46 +491,18 @@ int send_http_request(int sockfd, HTTP_Request *request)
 HTTP_Request *receive_http_request(int sockfd)
 {
     char buffer[DEFAULT_BUFFER_SIZE];
-    char *header_end_ptr, *headers_part;
-    const char *content_length_str, *line_ending;
-    int already_read, body_length, header_end, size;
+    const char *content_length_str;
+    int body_length, size;
     HTTP_Request *request;
 
-    line_ending = "\r\n";
-
     // Read headers first
-    size = read_until_double_crlf(sockfd, buffer, DEFAULT_BUFFER_SIZE);
+    size = read_until_double_end_line(sockfd, buffer, DEFAULT_BUFFER_SIZE);
     if (size <= 0)
     {
         return NULL;
     }
 
-    buffer[size] = '\0'; // Null-terminate the received data
-
-    // Find the end of the headers, marked by \r\n\r\n
-    header_end_ptr = strstr(buffer, "\r\n\r\n");
-    if (header_end_ptr == NULL)
-    {
-        fprintf(stderr, "Formato inválido de HTTP request\n");
-        return NULL;
-    }
-
-    // Calculate the position of the end of the headers
-    header_end = header_end_ptr - buffer + (sizeof(line_ending) * 2); // move past \r\n\r\n
-
-    // Deserialize the headers part
-    headers_part = (char *)malloc((header_end + 1) * sizeof(char));
-    if (headers_part == NULL)
-    {
-        fprintf(stderr, "Error al asignar memoria para headers_part\n");
-        return NULL;
-    }
-
-    strncpy(headers_part, buffer, header_end);
-    headers_part[header_end] = '\0'; // Null-terminate
-
-    request = deserialize_http_request(headers_part);
-    free(headers_part);
+    request = deserialize_http_request_header(buffer);
 
     // Get the Content-Length header value
     content_length_str = find_header_value(request->headers, request->header_count, "Content-Length");
@@ -543,19 +523,8 @@ HTTP_Request *receive_http_request(int sockfd)
             return NULL;
         }
 
-        // Check if any of the body was already read in the initial read
-        already_read = size - header_end;
-        if (already_read < 0)
-        {
-            already_read = 0;
-        }
-        else if (already_read > 0)
-        {
-            strncpy(request->body, buffer + header_end, already_read);
-        }
-
-        // Read the remaining body
-        if (recvall(sockfd, request->body + already_read, body_length - already_read) <= 0)
+        // Read the body
+        if (recvall(sockfd, request->body, body_length) <= 0)
         {
             free_http_request(request);
             return NULL;
@@ -687,7 +656,7 @@ int serialize_http_response(HTTP_Response *response, char **buffer)
     return size;
 }
 
-HTTP_Response *deserialize_http_response(const char *buffer)
+HTTP_Response *deserialize_http_response_headers(const char *buffer)
 {
     char version[VERSION_SIZE], reason_phrase[REASON_PHRASE_SIZE];
     char *body_start, *key, *line, *temp_buffer, *value;
@@ -748,21 +717,6 @@ HTTP_Response *deserialize_http_response(const char *buffer)
         }
         line = strtok(NULL, "\r\n");
     }
-    // Process body
-    body_start = strtok(NULL, "");
-    response->body = (char *)malloc(strlen(body_start) + 1);
-    if (response->body == NULL)
-    {
-        fprintf(stderr, "Error al asignar memoria para el body\n");
-        free_headers(&(response->headers), response->header_count);
-        free(response->response_line.version);
-        free(response->response_line.reason_phrase);
-        free(response);
-        free(temp_buffer);
-        return NULL;
-    }
-    strcpy(response->body, body_start);
-
     free(temp_buffer);
     return response;
 }
@@ -892,10 +846,11 @@ HTTP_Response *receive_http_response(int sockfd)
 
 int read_until_double_end_line(int sockfd, char *buffer, int length)
 {
-    int total = 0; // Total bytes received
+    int total; // Total bytes received
     int n;
     char *end_of_headers;
 
+    total = 0;
     while (total < length)
     {
         n = recv(sockfd, buffer + total, length - total, 0);

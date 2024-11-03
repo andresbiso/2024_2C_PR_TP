@@ -49,6 +49,12 @@
     "cstring": "c",
     "file.h": "c",
     "http.h": "c",
-    "pack.h": "c"
+    "pack.h": "c",
+    "__hash_table": "c",
+    "__split_buffer": "c",
+    "initializer_list": "c",
+    "queue": "c",
+    "stack": "c",
+    "unordered_map": "c"
   }
 }
