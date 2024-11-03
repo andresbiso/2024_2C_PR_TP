@@ -768,7 +768,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                     select_ret--;
                     // handle exceptions on the socket
                     perror("server: excepción en socket");
-                    if (i != sockfd_tcp && i != heartbeat_data->sockfd)
+                    if (i != sockfd_tcp && i != heartbeat_data->sockfd && i != sockfd_tcp_http)
                     {
                         if (index_in_client_http_data_array(http_clients, MAX_CLIENTS, i))
                         {
@@ -1152,20 +1152,20 @@ void *handle_client_http_read(void *arg)
 
 void *handle_client_http_write(void *arg)
 {
-    char full_path[DEFAULT_BUFFER_SIZE];
-    char buffer[DEFAULT_BUFFER_SIZE];
-    ssize_t bytes_read, bytes_written;
-    struct stat file_stat;
-    Client_Http_Data *client_data;
+    // char full_path[DEFAULT_BUFFER_SIZE];
+    // char buffer[DEFAULT_BUFFER_SIZE];
+    // ssize_t bytes_read, bytes_written;
+    // struct stat file_stat;
+    // Client_Http_Data *client_data;
     Thread_Result *thread_result;
-    Header headers[3];
+    // Header headers[3];
 
     if (arg == NULL)
     {
         return NULL;
     }
 
-    client_data = (Client_Http_Data *)arg;
+    // client_data = (Client_Http_Data *)arg;
     pthread_mutex_lock(&lock); // Lock before malloc
     thread_result = (Thread_Result *)malloc(sizeof(Thread_Result));
     pthread_mutex_unlock(&lock); // Unlock after malloc
@@ -1175,79 +1175,79 @@ void *handle_client_http_write(void *arg)
         return NULL;
     }
 
-    if (client_data->request == NULL)
-    {
-        thread_result->value = THREAD_RESULT_EMPTY_REQUEST;
-        pthread_exit((void *)thread_result);
-    }
+    // if (client_data->request == NULL)
+    // {
+    //     thread_result->value = THREAD_RESULT_EMPTY_REQUEST;
+    //     pthread_exit((void *)thread_result);
+    // }
 
-    printf("Thread HTTP (%s:%d): escritura comienzo\n", client_data->client_ipstr, client_data->client_port);
+    // printf("Thread HTTP (%s:%d): escritura comienzo\n", client_data->client_ipstr, client_data->client_port);
 
-    pthread_mutex_lock(&lock);
+    // pthread_mutex_lock(&lock);
 
-    // Generate the response
-    snprintf(full_path, sizeof(full_path), "assets%s", client_data->request->request_line.uri);
+    // // Generate the response
+    // snprintf(full_path, sizeof(full_path), "assets%s", client_data->request->request_line.uri);
 
-    int file_fd = open(full_path, O_RDONLY);
-    if (file_fd < 0 || fstat(file_fd, &file_stat) != 0)
-    {
-        // File not found or error getting file stats
-        if (file_fd >= 0)
-            close(file_fd);
-        client_data->response = create_http_response("HTTP/1.1", 404, "Not Found", NULL, 0, "404 Not Found");
-    }
-    else
-    {
-        // File found, create response
-        const char *content_type = get_content_type(strrchr(full_path, '.'));
-        headers[0].key = "Content-Type";
-        strcpy(headers[0].value, content_type);
-        headers[1].key = "Content-Length";
-        headers[1].value = malloc(16);
-        headers[2].key = "Connection";
-        headers[2].value = "close";
-        snprintf(headers[1].value, 16, "%ld", file_stat.st_size);
+    // int file_fd = open(full_path, O_RDONLY);
+    // if (file_fd < 0 || fstat(file_fd, &file_stat) != 0)
+    // {
+    //     // File not found or error getting file stats
+    //     if (file_fd >= 0)
+    //         close(file_fd);
+    //     client_data->response = create_http_response("HTTP/1.1", 404, "Not Found", NULL, 0, "404 Not Found");
+    // }
+    // else
+    // {
+    //     // File found, create response
+    //     const char *content_type = get_content_type(strrchr(full_path, '.'));
+    //     headers[0].key = "Content-Type";
+    //     strcpy(headers[0].value, content_type);
+    //     headers[1].key = "Content-Length";
+    //     headers[1].value = malloc(16);
+    //     headers[2].key = "Connection";
+    //     headers[2].value = "close";
+    //     snprintf(headers[1].value, 16, "%ld", file_stat.st_size);
 
-        client_data->response = create_http_response("HTTP/1.1", 200, "OK", headers, 2, NULL);
-    }
+    //     client_data->response = create_http_response("HTTP/1.1", 200, "OK", headers, 2, NULL);
+    // }
 
-    pthread_mutex_unlock(&lock);
+    // pthread_mutex_unlock(&lock);
 
-    // Send HTTP response headers
-    if (send_http_response(client_data->client_sockfd, client_data->response) < 0)
-    {
-        fprintf(stderr, "Error sending HTTP response\n");
-        thread_result->value = THREAD_RESULT_ERROR;
-        if (client_data->response != NULL)
-            free_http_response(client_data->response);
-        pthread_exit((void *)thread_result);
-    }
+    // // Send HTTP response headers
+    // if (send_http_response(client_data->client_sockfd, client_data->response) < 0)
+    // {
+    //     fprintf(stderr, "Error sending HTTP response\n");
+    //     thread_result->value = THREAD_RESULT_ERROR;
+    //     if (client_data->response != NULL)
+    //         free_http_response(client_data->response);
+    //     pthread_exit((void *)thread_result);
+    // }
 
-    // Send file content if response is 200 OK
-    if (client_data->response->response_line.status_code == 200)
-    {
-        while ((bytes_read = read(file_fd, buffer, sizeof(buffer))) > 0)
-        {
-            bytes_written = write(client_data->client_sockfd, buffer, bytes_read);
-            if (bytes_written < 0)
-            {
-                fprintf(stderr, "server: error enviando archivo\n");
-                thread_result->value = THREAD_RESULT_ERROR;
-                close(file_fd);
-                if (client_data->response != NULL)
-                    free_http_response(client_data->response);
-                pthread_exit((void *)thread_result);
-            }
-        }
-        close(file_fd);
-    }
+    // // Send file content if response is 200 OK
+    // if (client_data->response->response_line.status_code == 200)
+    // {
+    //     while ((bytes_read = read(file_fd, buffer, sizeof(buffer))) > 0)
+    //     {
+    //         bytes_written = write(client_data->client_sockfd, buffer, bytes_read);
+    //         if (bytes_written < 0)
+    //         {
+    //             fprintf(stderr, "server: error enviando archivo\n");
+    //             thread_result->value = THREAD_RESULT_ERROR;
+    //             close(file_fd);
+    //             if (client_data->response != NULL)
+    //                 free_http_response(client_data->response);
+    //             pthread_exit((void *)thread_result);
+    //         }
+    //     }
+    //     close(file_fd);
+    // }
 
-    // Cleanup
-    free_http_request(client_data->request);
-    free_http_response(client_data->response);
+    // // Cleanup
+    // free_http_request(client_data->request);
+    // free_http_response(client_data->response);
 
-    // Print completion message
-    printf("Thread HTTP (%s:%d): escritura fin\n", client_data->client_ipstr, client_data->client_port);
+    // // Print completion message
+    // printf("Thread HTTP (%s:%d): escritura fin\n", client_data->client_ipstr, client_data->client_port);
 
     thread_result->value = THREAD_RESULT_SUCCESS;
     pthread_exit((void *)thread_result);
