@@ -25,76 +25,99 @@
 
 Header *create_headers(int initial_count)
 {
-    Header *headers = (Header *)malloc(initial_count * sizeof(Header));
+    Header *headers;
+    headers = (Header *)malloc(initial_count * sizeof(Header));
     if (headers == NULL)
     {
         fprintf(stderr, "Error al asignar memoria para headers\n");
         return NULL;
     }
+    memset(headers, 0, initial_count * sizeof(Header)); // Initialize memory to zero
     return headers;
 }
 
-void free_headers(Header *headers, int header_count)
+void free_headers(Header **headers, int header_count)
 {
     for (int i = 0; i < header_count; i++)
     {
-        free(headers[i].key);
-        free(headers[i].value);
+        free_header(headers[i]);
+        headers[i] = NULL; // Set each element to NULL
     }
-    free(headers);
+    free(*headers);
+    *headers = NULL; // Set the original pointer to NULL
 }
 
-int add_header(Header **headers, int *header_count, const char *key, const char *value)
+void free_header(Header *header)
 {
-    *headers = (Header *)realloc(*headers, (*header_count + 1) * sizeof(Header));
-    if (*headers == NULL)
+    if (header != NULL)
     {
-        fprintf(stderr, "Error reasignando memoria\n");
-        return -1;
+        free(header->key);
+        free(header->value);
+    }
+}
+
+int add_header(Header **headers, int *header_index, int *header_count, const char *key, const char *value)
+{
+    if (*header_index >= *header_count)
+    {
+        *header_count *= 2;
+        *headers = (Header *)realloc(*headers, (*header_count) * sizeof(Header));
+        if (*headers == NULL)
+        {
+            fprintf(stderr, "Error reasignando memoria\n");
+            return -1;
+        }
     }
 
-    (*headers)[*header_count].key = (char *)malloc(strlen(key) + 1);
-    if ((*headers)[*header_count].key == NULL)
+    (*headers)[*header_index].key = (char *)malloc(strlen(key) + 1);
+    if ((*headers)[*header_index].key == NULL)
     {
-        fprintf(stderr, "Error reasignando memoria para key\n");
+        fprintf(stderr, "Error al asignar memoria para key\n");
         return -1;
     }
-    strcpy((*headers)[*header_count].key, key);
+    strcpy((*headers)[*header_index].key, key);
 
-    (*headers)[*header_count].value = (char *)malloc(strlen(value) + 1);
-    if ((*headers)[*header_count].value == NULL)
+    (*headers)[*header_index].value = (char *)malloc(strlen(value) + 1);
+    if ((*headers)[*header_index].value == NULL)
     {
-        fprintf(stderr, "Error reasignando memoria para value\n");
-        free((*headers)[*header_count].key);
+        fprintf(stderr, "Error al asignar memoria para value\n");
+        free((*headers)[*header_index].key);
         return -1;
     }
-    strcpy((*headers)[*header_count].value, value);
+    strcpy((*headers)[*header_index].value, value);
 
-    (*header_count)++;
+    (*header_index)++;
     return 0;
 }
 
-int remove_header(Header **headers, int *header_count, const char *key)
+int remove_header(Header **headers, int *header_index, int *header_count, const char *key)
 {
-    for (int i = 0; i < *header_count; i++)
+    int i, j;
+    Header *temp;
+    for (i = 0; i < *header_index; i++)
     {
         if (strcmp((*headers)[i].key, key) == 0)
         {
-            free((*headers)[i].key);
-            free((*headers)[i].value);
+            free_header(&(*headers)[i]);
 
             // Shift remaining headers left
-            for (int j = i; j < *header_count - 1; j++)
+            for (j = i; j < *header_index - 1; j++)
             {
                 (*headers)[j] = (*headers)[j + 1];
             }
 
-            (*header_count)--;
-            *headers = (Header *)realloc(*headers, (*header_count) * sizeof(Header));
-            if (*headers == NULL && *header_count > 0)
+            (*header_index)--;
+
+            if (*header_index > 0 && *header_index < *header_count / 2)
             {
-                fprintf(stderr, "Error reasignando memoria\n");
-                return -1;
+                *header_count /= 2;
+                temp = (Header *)realloc(*headers, (*header_count) * sizeof(Header));
+                if (temp == NULL)
+                {
+                    fprintf(stderr, "Error reasignando memoria\n");
+                    return -1;
+                }
+                *headers = temp;
             }
 
             return 0; // Success
@@ -105,30 +128,37 @@ int remove_header(Header **headers, int *header_count, const char *key)
 
 int serialize_headers(const Header *headers, int header_count, char **buffer)
 {
-    int size = 0;
+    const char *key_value_separator;
+    const char *line_ending;
+    int i, extra_char_size, size;
+
+    key_value_separator = ": ";
+    line_ending = "\r\n";
+    size = 0;
 
     // Calculate the total size needed for the buffer
-    for (int i = 0; i < header_count; i++)
+    for (i = 0; i < header_count; i++)
     {
-        size += strlen(headers[i].key) + strlen(headers[i].value) + 4; // For ': ' and '\r\n'
+        size += strlen(headers[i].key) + strlen(headers[i].value) + strlen(key_value_separator) + strlen(line_ending);
     }
 
     *buffer = (char *)malloc((size + 1) * sizeof(char)); // +1 for the null terminator
     if (*buffer == NULL)
     {
-        fprintf(stderr, "Error reasignando memoria para buffer\n");
+        fprintf(stderr, "Error al asignar memoria para buffer\n");
         return -1;
     }
 
     (*buffer)[0] = '\0'; // Initialize the buffer
 
     // Construct the headers string
-    for (int i = 0; i < header_count; i++)
+    for (i = 0; i < header_count; i++)
     {
+        // Concat values
         strcat(*buffer, headers[i].key);
-        strcat(*buffer, ": ");
+        strcat(*buffer, key_value_separator);
         strcat(*buffer, headers[i].value);
-        strcat(*buffer, "\r\n");
+        strcat(*buffer, line_ending);
     }
 
     return size; // Return the size of the serialized headers
@@ -136,45 +166,53 @@ int serialize_headers(const Header *headers, int header_count, char **buffer)
 
 Header *deserialize_headers(const char *headers_str, int *header_count)
 {
-    int count = 0;
-    char *headers_copy = (char *)malloc(strlen(headers_str) + 1);
-    strcpy(headers_copy, headers_str);
+    int count;
+    const char *temp_str;
 
-    char *line = strtok(headers_copy, "\r\n");
+    count = 0;
+    temp_str = headers_str;
 
-    while (line != NULL)
+    while (*temp_str)
     {
-        count++;
-        line = strtok(NULL, "\r\n");
+        if (*temp_str == '\r' || *temp_str == '\n')
+        {
+            count++;
+            while (*temp_str == '\r' || *temp_str == '\n')
+                temp_str++;
+        }
+        else
+        {
+            temp_str++;
+        }
     }
-
-    free(headers_copy);
-    headers_copy = (char *)malloc(strlen(headers_str) + 1);
-    strcpy(headers_copy, headers_str);
 
     Header *headers = (Header *)malloc(count * sizeof(Header));
     if (headers == NULL)
     {
-        fprintf(stderr, "Error reasignando memoria\n");
-        free(headers_copy);
+        fprintf(stderr, "Error al asignar memoria\n");
         return NULL;
     }
 
-    line = strtok(headers_copy, "\r\n");
+    char *headers_copy = (char *)malloc(strlen(headers_str) + 1);
+    strcpy(headers_copy, headers_str);
+
+    char *line = strtok(headers_copy, "\r\n"); // Tokenize the headers_copy string, separating by "\r\n"
     for (int i = 0; i < count; i++)
     {
+        // Finds the first occurrence of ':' in the current line
         char *colon = strchr(line, ':');
         if (colon != NULL)
         {
-            *colon = '\0';
-            headers[i].key = (char *)malloc(strlen(line) + 1);
-            strcpy(headers[i].key, line);
-            headers[i].value = (char *)malloc(strlen(colon + 2) + 1);
-            strcpy(headers[i].value, colon + 2);
-        }
-        line = strtok(NULL, "\r\n");
-    }
+            *colon = '\0';                                     // Replace ':' with '\0' to terminate the key string
+            headers[i].key = (char *)malloc(strlen(line) + 1); // Allocate memory for the key
+            strcpy(headers[i].key, line);                      // Copy the key to headers[i].key
 
+            // colon + 2 points directly to the start of the value string
+            headers[i].value = (char *)malloc(strlen(colon + 2) + 1); // Allocate memory for the value
+            strcpy(headers[i].value, colon + 2);                      // Copy the value to headers[i].value
+        }
+        line = strtok(NULL, "\r\n"); // Continue tokenizing the rest of the headers_copy string
+    }
     free(headers_copy);
     *header_count = count;
     return headers;
@@ -182,7 +220,8 @@ Header *deserialize_headers(const char *headers_str, int *header_count)
 
 const char *find_header_value(Header *headers, int header_count, const char *key)
 {
-    for (int i = 0; i < header_count; i++)
+    int i;
+    for (i = 0; i < header_count; i++)
     {
         if (strcmp(headers[i].key, key) == 0)
         {
@@ -194,7 +233,8 @@ const char *find_header_value(Header *headers, int header_count, const char *key
 
 void log_headers(Header *headers, int header_count)
 {
-    for (int i = 0; i < header_count; ++i)
+    int i;
+    for (i = 0; i < header_count; ++i)
     {
         printf("%s: %s\n", headers[i].key, headers[i].value);
     }
@@ -202,70 +242,107 @@ void log_headers(Header *headers, int header_count)
 
 HTTP_Request *create_http_request(const char *method, const char *uri, const char *version, const Header *headers, int header_count, const char *body)
 {
-    HTTP_Request *packet = (HTTP_Request *)malloc(sizeof(HTTP_Request));
-    if (packet == NULL)
+    int header_index, i;
+    HTTP_Request *request;
+
+    if (method == NULL || uri == NULL || version == NULL || headers == NULL || header_count < 0 || body == NULL)
     {
-        fprintf(stderr, "Error reasignando memoria: %s\n", strerror(errno));
+        puts("Uno o más valores de creación de HTTP Request es inválido\n");
         return NULL;
     }
 
-    packet->request_line.method = (char *)malloc(strlen(method) + 1);
-    strcpy(packet->request_line.method, method);
+    request = (HTTP_Request *)malloc(sizeof(HTTP_Request));
+    if (request == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
+        return NULL;
+    }
 
-    packet->request_line.uri = (char *)malloc(strlen(uri) + 1);
-    strcpy(packet->request_line.uri, uri);
+    request->request_line.method = (char *)malloc(strlen(method) + 1);
+    strcpy(request->request_line.method, method);
 
-    packet->request_line.version = (char *)malloc(strlen(version) + 1);
-    strcpy(packet->request_line.version, version);
+    request->request_line.uri = (char *)malloc(strlen(uri) + 1);
+    strcpy(request->request_line.uri, uri);
 
-    packet->headers = (Header *)malloc(header_count * sizeof(Header));
-    if (packet->headers == NULL)
+    request->request_line.version = (char *)malloc(strlen(version) + 1);
+    strcpy(request->request_line.version, version);
+
+    request->headers = create_headers(header_count);
+    if (request->headers == NULL)
     {
         fprintf(stderr, "Error al asignar memoria para headers: %s\n", strerror(errno));
-        free(packet->request_line.method);
-        free(packet->request_line.uri);
-        free(packet->request_line.version);
-        free(packet);
+        free(request->request_line.method);
+        free(request->request_line.uri);
+        free(request->request_line.version);
+        free(request);
         return NULL;
     }
 
-    for (int i = 0; i < header_count; i++)
+    request->header_count = header_count;
+    header_index = 0;
+
+    for (i = 0; i < header_count; i++)
     {
-        packet->headers[i].key = (char *)malloc(strlen(headers[i].key) + 1);
-        strcpy(packet->headers[i].key, headers[i].key);
-
-        packet->headers[i].value = (char *)malloc(strlen(headers[i].value) + 1);
-        strcpy(packet->headers[i].value, headers[i].value);
+        if (add_header(&(request->headers), &header_index, &(request->header_count), headers[i].key, headers[i].value) != 0)
+        {
+            fprintf(stderr, "Error al agregar header\n");
+            free(request->request_line.method);
+            free(request->request_line.uri);
+            free(request->request_line.version);
+            free_headers(&(request->headers), request->header_count);
+            free(request);
+            return NULL; // Return NULL to indicate failure
+        }
     }
-    packet->header_count = header_count;
 
-    packet->body = (char *)malloc(strlen(body) + 1);
-    strcpy(packet->body, body);
+    request->body = (char *)malloc(strlen(body) + 1);
+    strcpy(request->body, body);
 
-    return packet;
+    return request;
 }
 
-void free_http_request(HTTP_Request *packet)
+void free_http_request(HTTP_Request *request)
 {
-    if (packet != NULL)
+    if (request != NULL)
     {
-        free(packet->request_line.method);
-        free(packet->request_line.uri);
-        free(packet->request_line.version);
-        free_headers(packet->headers, packet->header_count);
-        free(packet->body);
-        free(packet);
+        if (request->request_line.method != NULL)
+        {
+            free(request->request_line.method);
+        }
+        if (request->request_line.uri != NULL)
+        {
+            free(request->request_line.uri);
+        }
+        if (request->request_line.version != NULL)
+        {
+            free(request->request_line.version);
+        }
+        free_headers(request->headers, request->header_count);
+        if (request->body != NULL)
+        {
+            free(request->body);
+        }
+        free(request);
     }
 }
 
-int serialize_http_request(HTTP_Request *packet, char **buffer)
+int serialize_http_request(HTTP_Request *request, char **buffer)
 {
-    int size = strlen(packet->request_line.method) + strlen(packet->request_line.uri) + strlen(packet->request_line.version) + 4; // For spaces and \r\n
-    for (int i = 0; i < packet->header_count; i++)
+    const char *key_value_separator;
+    const char *line_ending;
+    const char *space;
+    int i, extra_char_size, size;
+
+    key_value_separator = ": ";
+    line_ending = "\r\n";
+    space = " ";
+
+    size = strlen(request->request_line.method) + strlen(request->request_line.uri) + strlen(request->request_line.version) + strlen(space) * 2 + strlen(line_ending);
+    for (i = 0; i < request->header_count; i++)
     {
-        size += strlen(packet->headers[i].key) + strlen(packet->headers[i].value) + 4; // For ': ' and \r\n
+        size += strlen(request->headers[i].key) + strlen(request->headers[i].value) + strlen(key_value_separator) + strlen(line_ending);
     }
-    size += 4; // For \r\n\r\n after headers
+    size += strlen(line_ending); // For \r\n after headers
 
     *buffer = (char *)malloc(size * sizeof(char));
     if (*buffer == NULL)
@@ -274,66 +351,114 @@ int serialize_http_request(HTTP_Request *packet, char **buffer)
         return -1;
     }
 
-    sprintf(*buffer, "%s %s %s\r\n", packet->request_line.method, packet->request_line.uri, packet->request_line.version);
-    for (int i = 0; i < packet->header_count; i++)
+    sprintf(*buffer, "%s %s %s%s", request->request_line.method, request->request_line.uri, request->request_line.version, line_ending);
+    for (i = 0; i < request->header_count; i++)
     {
-        strcat(*buffer, packet->headers[i].key);
-        strcat(*buffer, ": ");
-        strcat(*buffer, packet->headers[i].value);
-        strcat(*buffer, "\r\n");
+        strcat(*buffer, request->headers[i].key);
+        strcat(*buffer, key_value_separator);
+        strcat(*buffer, request->headers[i].value);
+        strcat(*buffer, line_ending);
     }
-    strcat(*buffer, "\r\n");
+    strcat(*buffer, line_ending);
 
     return size;
 }
 
 HTTP_Request *deserialize_http_request(const char *buffer)
 {
-    HTTP_Request *packet = (HTTP_Request *)malloc(sizeof(HTTP_Request));
-    if (packet == NULL)
+    char method[METHOD_SIZE], uri[URI_SIZE], version[VERSION_SIZE];
+    char *body_start, *key, *line, *temp_buffer, *value;
+    int header_index;
+    HTTP_Request *request;
+
+    request = (HTTP_Request *)malloc(sizeof(HTTP_Request));
+    if (request == NULL)
     {
-        fprintf(stderr, "Error asginando memoria\n");
+        fprintf(stderr, "Error al asignar memoria\n");
         return NULL;
     }
 
-    char *temp_buffer = strdup(buffer);
-    char *line = strtok(temp_buffer, "\r\n");
-    char method[16], uri[256], version[16];
+    temp_buffer = (char *)malloc(strlen(buffer) + 1);
+    if (temp_buffer == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria\n");
+        free(request);
+        return NULL;
+    }
+    strcpy(temp_buffer, buffer);
+
+    line = strtok(temp_buffer, "\r\n");
     sscanf(line, "%s %s %s", method, uri, version);
 
-    packet->request_line.method = (char *)malloc(strlen(method) + 1);
-    strcpy(packet->request_line.method, method);
+    request->request_line.method = (char *)malloc(strlen(method) + 1);
+    strcpy(request->request_line.method, method);
 
-    packet->request_line.uri = (char *)malloc(strlen(uri) + 1);
-    strcpy(packet->request_line.uri, uri);
+    request->request_line.uri = (char *)malloc(strlen(uri) + 1);
+    strcpy(request->request_line.uri, uri);
 
-    packet->request_line.version = (char *)malloc(strlen(version) + 1);
-    strcpy(packet->request_line.version, version);
+    request->request_line.version = (char *)malloc(strlen(version) + 1);
+    strcpy(request->request_line.version, version);
 
-    packet->header_count = 0;
-    packet->headers = NULL;
+    request->header_count = 0;
+    request->headers = create_headers(INITIAL_HEADER_COUNT); // Initial allocation for headers
+
     line = strtok(NULL, "\r\n");
+    header_index = 0;
     while (line != NULL && line[0] != '\0')
     {
-        add_header(&(packet->headers), &(packet->header_count), strtok(line, ": "), strtok(NULL, ""));
+        if (line[0] == '\0')
+        {
+            // Blank line indicates the end of headers
+            // Blank line between headers and body
+            break;
+        }
+        key = strtok(line, ": ");
+        value = strtok(NULL, "\r\n");
+        if (add_header(&(request->headers), &header_index, &(request->header_count), key, value) != 0)
+        {
+            fprintf(stderr, "Error al agregar header\n");
+            free_headers(&(request->headers), request->header_count);
+            free(request->request_line.method);
+            free(request->request_line.uri);
+            free(request->request_line.version);
+            free(request);
+            free(temp_buffer);
+            return NULL;
+        }
         line = strtok(NULL, "\r\n");
     }
-
-    packet->body = strdup(strtok(NULL, ""));
+    // Process body
+    body_start = strtok(NULL, "");
+    request->body = (char *)malloc(strlen(body_start) + 1);
+    if (request->body == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria para el body\n");
+        free_headers(&(request->headers), request->header_count);
+        free(request->request_line.method);
+        free(request->request_line.uri);
+        free(request->request_line.version);
+        free(request);
+        free(temp_buffer);
+        return NULL;
+    }
+    strcpy(request->body, body_start);
 
     free(temp_buffer);
-    return packet;
+    return request;
 }
 
-int send_http_request(int sockfd, HTTP_Request *packet)
+int send_http_request(int sockfd, HTTP_Request *request)
 {
     char *buffer;
-    int size = serialize_http_request(packet, &buffer);
+    // Serialize request line and headers
+    int size = serialize_http_request(request, &buffer);
     if (size < 0)
     {
         return -1;
     }
-    if (send(sockfd, buffer, size, 0) < 0)
+
+    // Send request line and headers
+    if (sendall(sockfd, buffer, size) < 0)
     {
         perror("send headers");
         free(buffer);
@@ -341,49 +466,108 @@ int send_http_request(int sockfd, HTTP_Request *packet)
     }
     free(buffer);
 
-    if (packet->body != NULL)
+    // Send body if it exists
+    if (request->body != NULL)
     {
-        if (send(sockfd, packet->body, strlen(packet->body), 0) < 0)
+        int body_len = strlen(request->body);
+        if (send_all(sockfd, request->body, body_len) < 0)
         {
             perror("send body");
             return -1;
         }
     }
+
     return 0;
 }
 
 HTTP_Request *receive_http_request(int sockfd)
 {
-    char buffer[1024];
-    int size;
-    HTTP_Request *packet;
+    char buffer[DEFAULT_BUFFER_SIZE];
+    char *header_end_ptr, *headers_part;
+    const char *content_length_str, *line_ending;
+    int already_read, body_length, header_end, size;
+    HTTP_Request *request;
 
-    size = recv(sockfd, buffer, sizeof(buffer), 0);
-    if (size < 0)
+    line_ending = "\r\n";
+
+    // Read headers first
+    size = read_until_double_crlf(sockfd, buffer, DEFAULT_BUFFER_SIZE);
+    if (size <= 0)
     {
-        perror("recv headers");
         return NULL;
     }
+
     buffer[size] = '\0'; // Null-terminate the received data
-    packet = deserialize_http_request(buffer);
 
-    packet->body = (char *)malloc(1024 * sizeof(char));
-    if (packet->body == NULL)
+    // Find the end of the headers, marked by \r\n\r\n
+    header_end_ptr = strstr(buffer, "\r\n\r\n");
+    if (header_end_ptr == NULL)
     {
-        fprintf(stderr, "Error al asignar memoria para body\n");
-        free_http_request(packet);
+        fprintf(stderr, "Formato inválido de HTTP request\n");
         return NULL;
     }
-    size = recv(sockfd, packet->body, 1024, 0); // Adjust size as needed
-    if (size < 0)
+
+    // Calculate the position of the end of the headers
+    header_end = header_end_ptr - buffer + (sizeof(line_ending) * 2); // move past \r\n\r\n
+
+    // Deserialize the headers part
+    headers_part = (char *)malloc((header_end + 1) * sizeof(char));
+    if (headers_part == NULL)
     {
-        perror("recv body");
-        free_http_request(packet);
+        fprintf(stderr, "Error al asignar memoria para headers_part\n");
         return NULL;
     }
-    packet->body[size] = '\0';
 
-    return packet;
+    strncpy(headers_part, buffer, header_end);
+    headers_part[header_end] = '\0'; // Null-terminate
+
+    request = deserialize_http_request(headers_part);
+    free(headers_part);
+
+    // Get the Content-Length header value
+    content_length_str = find_header_value(request->headers, request->header_count, "Content-Length");
+    body_length = 0;
+    if (content_length_str != NULL)
+    {
+        body_length = atoi(content_length_str); // Convert Content-Length to an integer
+    }
+
+    // Read the body if it exists
+    if (body_length > 0)
+    {
+        request->body = (char *)malloc((body_length + 1) * sizeof(char)); // +1 for null-terminator
+        if (request->body == NULL)
+        {
+            fprintf(stderr, "Error al asignar memoria para body\n");
+            free_http_request(request);
+            return NULL;
+        }
+
+        // Check if any of the body was already read in the initial read
+        already_read = size - header_end;
+        if (already_read < 0)
+        {
+            already_read = 0;
+        }
+        else if (already_read > 0)
+        {
+            strncpy(request->body, buffer + header_end, already_read);
+        }
+
+        // Read the remaining body
+        if (recvall(sockfd, request->body + already_read, body_length - already_read) <= 0)
+        {
+            free_http_request(request);
+            return NULL;
+        }
+        request->body[body_length] = '\0'; // Null-terminate the body
+    }
+    else
+    {
+        request->body = NULL;
+    }
+
+    return request;
 }
 
 HTTP_Response *create_http_response(const char *version, int status_code, const char *reason_phrase, const Header *headers, int header_count, const char *body)
@@ -611,6 +795,40 @@ HTTP_Response *receive_http_response(int sockfd)
     }
 
     return response;
+}
+
+int read_until_double_end_line(int sockfd, char *buffer, int length)
+{
+    int total = 0; // Total bytes received
+    int n;
+    char *end_of_headers;
+
+    while (total < length)
+    {
+        n = recv(sockfd, buffer + total, length - total, 0);
+        if (n == -1)
+        {
+            perror("recv");
+            return -1; // Error
+        }
+        if (n == 0)
+        {
+            // Connection closed
+            return total;
+        }
+        total += n;
+        buffer[total] = '\0';
+
+        // Check if we've received two consecutive CRLF
+        end_of_headers = strstr(buffer, "\r\n\r\n");
+        if (end_of_headers != NULL)
+        {
+            // Found the end of headers
+            return total;
+        }
+    }
+
+    return total; // Return total bytes received
 }
 
 const char *get_extension(const char *content_type)

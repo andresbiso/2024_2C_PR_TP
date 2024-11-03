@@ -1,6 +1,11 @@
 #ifndef HTTP_H
 #define HTTP_H
 
+#define INITIAL_HEADER_COUNT 10
+#define METHOD_SIZE 16
+#define URI_SIZE 256
+#define VERSION_SIZE 16
+
 typedef struct
 {
     char *key;
@@ -38,19 +43,20 @@ typedef struct
 } HTTP_Response;
 
 Header *create_headers(int initial_count);
-void free_headers(Header *headers, int header_count);
-int add_header(Header **headers, int *header_count, const char *key, const char *value);
-int remove_header(Header **headers, int *header_count, const char *key);
+void free_headers(Header **headers, int header_count);
+void free_header(Header *header);
+int add_header(Header **headers, int *header_index, int *header_count, const char *key, const char *value);
+int remove_header(Header **headers, int *header_index, int *header_count, const char *key);
 int serialize_headers(const Header *headers, int header_count, char **buffer);
 Header *deserialize_headers(const char *headers_str, int *header_count);
 const char *find_header_value(Header *headers, int header_count, const char *key);
 void log_headers(Header *headers, int header_count);
 
 HTTP_Request *create_http_request(const char *method, const char *uri, const char *version, const Header *headers, int header_count, const char *body);
-void free_http_request(HTTP_Request *packet);
-int serialize_http_request(HTTP_Request *packet, char **buffer);
+void free_http_request(HTTP_Request *request);
+int serialize_http_request(HTTP_Request *request, char **buffer);
 HTTP_Request *deserialize_http_request(const char *buffer);
-int send_http_request(int sockfd, HTTP_Request *packet);
+int send_http_request(int sockfd, HTTP_Request *request);
 HTTP_Request *receive_http_request(int sockfd);
 
 HTTP_Response *create_http_response(const char *version, int status_code, const char *reason_phrase, const Header *headers, int header_count, const char *body);
@@ -62,6 +68,7 @@ HTTP_Response *receive_http_response_headers(int sockfd);
 int receive_http_response_body(int sockfd, HTTP_Response *response);
 HTTP_Response *receive_http_response(int sockfd);
 
+int read_until_double_end_line(int sockfd, char *buffer, int length);
 const char *get_extension(const char *content_type);
 const char *get_content_type(const char *extension);
 
