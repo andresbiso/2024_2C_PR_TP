@@ -58,8 +58,11 @@ void free_http_response(HTTP_Response *response);
 int serialize_http_response(HTTP_Response *response, char **buffer);
 HTTP_Response *deserialize_http_response(const char *buffer);
 int send_http_response(int sockfd, HTTP_Response *response);
+HTTP_Response *receive_http_response_headers(int sockfd);
+int receive_http_response_body(int sockfd, HTTP_Response *response);
 HTTP_Response *receive_http_response(int sockfd);
 
 const char *get_extension(const char *content_type);
+const char *get_content_type(const char *extension);
 
-#endif // COMMON_H
+#endif // HTTP_H

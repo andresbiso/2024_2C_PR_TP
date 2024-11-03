@@ -30,12 +30,12 @@ int main(int argc, char *argv[])
     int sockfd; // listen on sock_fd
 
     strcpy(external_ip, EXTERNAL_IP);
-    strcpy(external_ip, "");
+    strcpy(external_port, "");
     strcpy(resource, DEFAULT_RESOURCE);
 
     mode = DEFAULT_MODE;
 
-    ret_val = parse_arguments(argc, argv, external_ip, external_port, mode, resource);
+    ret_val = parse_arguments(argc, argv, external_ip, external_port, &mode, resource);
     if (ret_val > 0)
     {
         return EXIT_SUCCESS;
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-        ret_val = handle_connection_http(sockfd);
+        ret_val = handle_connection_http(sockfd, resource);
     }
 
     if (ret_val < 0)
@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-int parse_arguments(int argc, char *argv[], char *external_ip, char *external_port, int mode, char *resource)
+int parse_arguments(int argc, char *argv[], char *external_ip, char *external_port, int *mode, char *resource)
 {
     int ret_val;
 
@@ -114,11 +114,12 @@ int parse_arguments(int argc, char *argv[], char *external_ip, char *external_po
                 strcpy(external_port, argv[i + 1]);
                 i++; // Skip the next argument since it's the port number
             }
-            else if (strcmp(argv[i], "--http-mode") == 0 && i + 1 < argc)
+            else if (strcmp(argv[i], "--mode") == 0 && i + 1 < argc)
             {
                 if (strcmp(argv[i + 1], "0") == 0 || strcmp(argv[i + 1], "1") == 0)
                 {
-                    mode = atoi(argv[i + 1]);
+                    *mode = atoi(argv[i + 1]);
+                    printf("mode %d", *mode);
                     i++; // Skip the next argument since it's the port number
                 }
                 else
@@ -331,7 +332,7 @@ int handle_connection_http(int sockfd, const char *resource)
     HTTP_Request *request = create_http_request(DEFAULT_HTTP_METHOD, resource, DEFAULT_HTTP_VERSION, headers, header_count, NULL);
     char *request_buffer;
     serialize_http_request(request, &request_buffer);
-    printf("Request:\n%s\n", request_buffer);
+    printf("client: Request:\n%s\n", request_buffer);
 
     send_http_request(sockfd, request);
     free(request_buffer);
@@ -346,8 +347,8 @@ int handle_connection_http(int sockfd, const char *resource)
         return -1;
     }
 
-    printf("Response Line: %s %d %s\n", response->response_line.version, response->response_line.status_code, response->response_line.reason_phrase);
-    printf("Headers:\n");
+    printf("client: Response Line: %s %d %s\n", response->response_line.version, response->response_line.status_code, response->response_line.reason_phrase);
+    printf("client: Headers:\n");
     log_headers(response->headers, response->header_count);
 
     // Check for specific headers
@@ -355,15 +356,15 @@ int handle_connection_http(int sockfd, const char *resource)
     const char *charset = find_header_value(response->headers, response->header_count, "charset");
     const char *connection = find_header_value(response->headers, response->header_count, "Connection");
 
-    printf("Content-Type: %s\n", content_type);
-    printf("Charset: %s\n", charset);
-    printf("Connection: %s\n", connection);
+    printf("client: Content-Type: %s\n", content_type);
+    printf("client: Charset: %s\n", charset);
+    printf("client: Connection: %s\n", connection);
 
     const char *extension = get_extension(content_type);
 
     if (extension)
     {
-        printf("Body received, saving to file\n");
+        printf("client: Body recibido, guardando archivo\n");
 
         // Save the body to a file
         char filename[64];
@@ -374,7 +375,7 @@ int handle_connection_http(int sockfd, const char *resource)
     }
     else
     {
-        printf("Content type is not recognized.\n");
+        printf("client: content type no fue encontrado.\n");
         free_http_response(response);
         return -1;
     }
@@ -384,11 +385,11 @@ int handle_connection_http(int sockfd, const char *resource)
     // Check for "Connection: close" header to close the socket
     if (connection && strcmp(connection, "close") == 0)
     {
-        printf("Connection is close. Terminating the client.\n");
+        printf("client: conexión cerrada. Finalizando...\n");
     }
     else
     {
-        printf("Keeping the connection open.\n");
+        printf("client: manteniendo la conexión abierta.\n");
     }
 
     return 0;

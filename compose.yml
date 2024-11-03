@@ -10,6 +10,6 @@ services:
     cap_add:
       - SYS_PTRACE
     ports:
-      - 3030:3030
+      - 3030:3030 # Format: "host_port:container_port"
     volumes:
       - .:/home/workspace

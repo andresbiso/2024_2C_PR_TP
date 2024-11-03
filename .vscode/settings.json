@@ -46,6 +46,9 @@
     "errno.h": "c",
     "compare": "c",
     "mutex": "c",
-    "cstring": "c"
+    "cstring": "c",
+    "file.h": "c",
+    "http.h": "c",
+    "pack.h": "c"
   }
 }

@@ -17,7 +17,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-// Shared headers
+// Other project headers
 #include "common.h"
 
 // Project header
@@ -28,7 +28,7 @@ Header *create_headers(int initial_count)
     Header *headers = (Header *)malloc(initial_count * sizeof(Header));
     if (headers == NULL)
     {
-        fprintf(stderr, "Error allocating memory for headers\n");
+        fprintf(stderr, "Error al asignar memoria para headers\n");
         return NULL;
     }
     return headers;
@@ -49,14 +49,14 @@ int add_header(Header **headers, int *header_count, const char *key, const char 
     *headers = (Header *)realloc(*headers, (*header_count + 1) * sizeof(Header));
     if (*headers == NULL)
     {
-        fprintf(stderr, "Error reallocating memory\n");
+        fprintf(stderr, "Error reasignando memoria\n");
         return -1;
     }
 
     (*headers)[*header_count].key = (char *)malloc(strlen(key) + 1);
     if ((*headers)[*header_count].key == NULL)
     {
-        fprintf(stderr, "Error allocating memory for key\n");
+        fprintf(stderr, "Error reasignando memoria para key\n");
         return -1;
     }
     strcpy((*headers)[*header_count].key, key);
@@ -64,7 +64,7 @@ int add_header(Header **headers, int *header_count, const char *key, const char 
     (*headers)[*header_count].value = (char *)malloc(strlen(value) + 1);
     if ((*headers)[*header_count].value == NULL)
     {
-        fprintf(stderr, "Error allocating memory for value\n");
+        fprintf(stderr, "Error reasignando memoria para value\n");
         free((*headers)[*header_count].key);
         return -1;
     }
@@ -93,7 +93,7 @@ int remove_header(Header **headers, int *header_count, const char *key)
             *headers = (Header *)realloc(*headers, (*header_count) * sizeof(Header));
             if (*headers == NULL && *header_count > 0)
             {
-                fprintf(stderr, "Error reallocating memory\n");
+                fprintf(stderr, "Error reasignando memoria\n");
                 return -1;
             }
 
@@ -116,7 +116,7 @@ int serialize_headers(const Header *headers, int header_count, char **buffer)
     *buffer = (char *)malloc((size + 1) * sizeof(char)); // +1 for the null terminator
     if (*buffer == NULL)
     {
-        fprintf(stderr, "Error allocating memory for buffer\n");
+        fprintf(stderr, "Error reasignando memoria para buffer\n");
         return -1;
     }
 
@@ -155,7 +155,7 @@ Header *deserialize_headers(const char *headers_str, int *header_count)
     Header *headers = (Header *)malloc(count * sizeof(Header));
     if (headers == NULL)
     {
-        fprintf(stderr, "Error allocating memory\n");
+        fprintf(stderr, "Error reasignando memoria\n");
         free(headers_copy);
         return NULL;
     }
@@ -205,7 +205,7 @@ HTTP_Request *create_http_request(const char *method, const char *uri, const cha
     HTTP_Request *packet = (HTTP_Request *)malloc(sizeof(HTTP_Request));
     if (packet == NULL)
     {
-        fprintf(stderr, "Error allocating memory: %s\n", strerror(errno));
+        fprintf(stderr, "Error reasignando memoria: %s\n", strerror(errno));
         return NULL;
     }
 
@@ -221,7 +221,7 @@ HTTP_Request *create_http_request(const char *method, const char *uri, const cha
     packet->headers = (Header *)malloc(header_count * sizeof(Header));
     if (packet->headers == NULL)
     {
-        fprintf(stderr, "Error allocating memory for headers: %s\n", strerror(errno));
+        fprintf(stderr, "Error al asignar memoria para headers: %s\n", strerror(errno));
         free(packet->request_line.method);
         free(packet->request_line.uri);
         free(packet->request_line.version);
@@ -270,7 +270,7 @@ int serialize_http_request(HTTP_Request *packet, char **buffer)
     *buffer = (char *)malloc(size * sizeof(char));
     if (*buffer == NULL)
     {
-        fprintf(stderr, "Error allocating memory\n");
+        fprintf(stderr, "Error al asignar memoria\n");
         return -1;
     }
 
@@ -292,7 +292,7 @@ HTTP_Request *deserialize_http_request(const char *buffer)
     HTTP_Request *packet = (HTTP_Request *)malloc(sizeof(HTTP_Request));
     if (packet == NULL)
     {
-        fprintf(stderr, "Error allocating memory\n");
+        fprintf(stderr, "Error asginando memoria\n");
         return NULL;
     }
 
@@ -370,7 +370,7 @@ HTTP_Request *receive_http_request(int sockfd)
     packet->body = (char *)malloc(1024 * sizeof(char));
     if (packet->body == NULL)
     {
-        fprintf(stderr, "Error allocating memory for body\n");
+        fprintf(stderr, "Error al asignar memoria para body\n");
         free_http_request(packet);
         return NULL;
     }
@@ -391,7 +391,7 @@ HTTP_Response *create_http_response(const char *version, int status_code, const 
     HTTP_Response *response = (HTTP_Response *)malloc(sizeof(HTTP_Response));
     if (response == NULL)
     {
-        fprintf(stderr, "Error allocating memory: %s\n", strerror(errno));
+        fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
         return NULL;
     }
 
@@ -405,7 +405,7 @@ HTTP_Response *create_http_response(const char *version, int status_code, const 
     response->headers = (Header *)malloc(header_count * sizeof(Header));
     if (response->headers == NULL)
     {
-        fprintf(stderr, "Error allocating memory for headers: %s\n", strerror(errno));
+        fprintf(stderr, "Error al asignar memoria para headers: %s\n", strerror(errno));
         free(response->response_line.version);
         free(response->response_line.reason_phrase);
         free(response);
@@ -452,7 +452,7 @@ int serialize_http_response(HTTP_Response *response, char **buffer)
     *buffer = (char *)malloc(size * sizeof(char));
     if (*buffer == NULL)
     {
-        fprintf(stderr, "Error allocating memory\n");
+        fprintf(stderr, "Error al asignar memoria\n");
         return -1;
     }
     sprintf(*buffer, "%s %d %s\r\n", response->response_line.version, response->response_line.status_code, response->response_line.reason_phrase);
@@ -473,7 +473,7 @@ HTTP_Response *deserialize_http_response(const char *buffer)
     HTTP_Response *response = (HTTP_Response *)malloc(sizeof(HTTP_Response));
     if (response == NULL)
     {
-        fprintf(stderr, "Error allocating memory\n");
+        fprintf(stderr, "Error al asignar memoria\n");
         return NULL;
     }
 
@@ -554,7 +554,7 @@ HTTP_Response *receive_http_response_headers(int sockfd)
 
     if (response == NULL)
     {
-        fprintf(stderr, "Error deserializing HTTP response\n");
+        fprintf(stderr, "Error desserializando HTTP response\n");
         return NULL;
     }
 
@@ -566,7 +566,7 @@ int receive_http_response_body(int sockfd, HTTP_Response *response)
     const char *content_length_str = find_header_value(response->headers, response->header_count, "Content-Length");
     if (content_length_str == NULL)
     {
-        fprintf(stderr, "Content-Length header not found\n");
+        fprintf(stderr, "Content-Length header no encontrado\n");
         return -1;
     }
 
@@ -574,7 +574,7 @@ int receive_http_response_body(int sockfd, HTTP_Response *response)
     response->body = (char *)malloc(content_length + 1);
     if (response->body == NULL)
     {
-        fprintf(stderr, "Error allocating memory for body\n");
+        fprintf(stderr, "Error al asignar memoria para body\n");
         return -1;
     }
 
@@ -598,13 +598,13 @@ int receive_http_response_body(int sockfd, HTTP_Response *response)
 
 HTTP_Response *receive_http_response(int sockfd)
 {
-    HTTP_Response *response = receive_http_headers(sockfd);
+    HTTP_Response *response = receive_http_response_headers(sockfd);
     if (response == NULL)
     {
         return NULL;
     }
 
-    if (receive_http_body(sockfd, response) < 0)
+    if (receive_http_response_body(sockfd, response) < 0)
     {
         free_http_response(response);
         return NULL;
@@ -646,5 +646,41 @@ const char *get_extension(const char *content_type)
     else
     {
         return NULL;
+    }
+}
+
+const char *get_content_type(const char *extension)
+{
+    if (strcmp(extension, ".jpg") == 0)
+    {
+        return "image/jpeg";
+    }
+    else if (strcmp(extension, ".png") == 0)
+    {
+        return "image/png";
+    }
+    else if (strcmp(extension, ".gif") == 0)
+    {
+        return "image/gif";
+    }
+    else if (strcmp(extension, ".bmp") == 0)
+    {
+        return "image/bmp";
+    }
+    else if (strcmp(extension, ".tiff") == 0)
+    {
+        return "image/tiff";
+    }
+    else if (strcmp(extension, ".txt") == 0)
+    {
+        return "text/plain";
+    }
+    else if (strcmp(extension, ".pdf") == 0)
+    {
+        return "application/pdf";
+    }
+    else
+    {
+        return "application/octet-stream"; // Default for unknown types
     }
 }
