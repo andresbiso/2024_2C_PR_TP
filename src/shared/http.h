@@ -5,7 +5,7 @@
 #define METHOD_SIZE 16
 #define URI_SIZE 256
 #define VERSION_SIZE 16
-#define REASON_SIZE 256
+#define REASON_PHRASE_SIZE 256
 
 typedef struct
 {

@@ -649,20 +649,245 @@ void free_http_response(HTTP_Response *response)
     }
 }
 
-int serialize_http_response(HTTP_Response *request, char **buffer)
+int serialize_http_response(HTTP_Response *response, char **buffer)
 {
+    const char *key_value_separator;
+    const char *line_ending;
+    const char *space;
+    int i, extra_char_size, size;
+
+    key_value_separator = ": ";
+    line_ending = "\r\n";
+    space = " ";
+
+    size = strlen(response->response_line.version) + sizeof(response->response_line.status_code) + strlen(response->response_line.reason_phrase) + strlen(space) * 2 + strlen(line_ending);
+    for (i = 0; i < response->header_count; i++)
+    {
+        size += strlen(response->headers[i].key) + strlen(response->headers[i].value) + strlen(key_value_separator) + strlen(line_ending);
+    }
+    size += strlen(line_ending); // For \r\n after headers
+
+    *buffer = (char *)malloc(size * sizeof(char));
+    if (*buffer == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria\n");
+        return -1;
+    }
+
+    sprintf(*buffer, "%s %d %s%s", response->response_line.version, response->response_line.status_code, response->response_line.reason_phrase, line_ending);
+    for (i = 0; i < response->header_count; i++)
+    {
+        strcat(*buffer, response->headers[i].key);
+        strcat(*buffer, key_value_separator);
+        strcat(*buffer, response->headers[i].value);
+        strcat(*buffer, line_ending);
+    }
+    strcat(*buffer, line_ending);
+
+    return size;
 }
 
 HTTP_Response *deserialize_http_response(const char *buffer)
 {
+    char version[VERSION_SIZE], reason_phrase[REASON_PHRASE_SIZE];
+    char *body_start, *key, *line, *temp_buffer, *value;
+    int header_index, status_code;
+    HTTP_Response *response;
+
+    response = (HTTP_Response *)malloc(sizeof(HTTP_Response));
+    if (response == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria\n");
+        return NULL;
+    }
+
+    temp_buffer = (char *)malloc(strlen(buffer) + 1);
+    if (temp_buffer == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria\n");
+        free(response);
+        return NULL;
+    }
+    strcpy(temp_buffer, buffer);
+
+    line = strtok(temp_buffer, "\r\n");
+    sscanf(line, "%s %d %s", version, status_code, reason_phrase);
+
+    response->response_line.version = (char *)malloc(strlen(version) + 1);
+    strcpy(response->response_line.version, version);
+
+    response->response_line.status_code = status_code;
+
+    response->response_line.reason_phrase = (char *)malloc(strlen(reason_phrase) + 1);
+    strcpy(response->response_line.reason_phrase, reason_phrase);
+
+    response->header_count = 0;
+    response->headers = create_headers(INITIAL_HEADER_COUNT); // Initial allocation for headers
+
+    line = strtok(NULL, "\r\n");
+    header_index = 0;
+    while (line != NULL && line[0] != '\0')
+    {
+        if (line[0] == '\0')
+        {
+            // Blank line indicates the end of headers
+            // Blank line between headers and body
+            break;
+        }
+        key = strtok(line, ": ");
+        value = strtok(NULL, "\r\n");
+        if (add_header(&(response->headers), &header_index, &(response->header_count), key, value) != 0)
+        {
+            fprintf(stderr, "Error al agregar header\n");
+            free_headers(&(response->headers), response->header_count);
+            free(response->response_line.version);
+            free(response->response_line.reason_phrase);
+            free(response);
+            free(temp_buffer);
+            return NULL;
+        }
+        line = strtok(NULL, "\r\n");
+    }
+    // Process body
+    body_start = strtok(NULL, "");
+    response->body = (char *)malloc(strlen(body_start) + 1);
+    if (response->body == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria para el body\n");
+        free_headers(&(response->headers), response->header_count);
+        free(response->response_line.version);
+        free(response->response_line.reason_phrase);
+        free(response);
+        free(temp_buffer);
+        return NULL;
+    }
+    strcpy(response->body, body_start);
+
+    free(temp_buffer);
+    return response;
 }
 
 int send_http_response(int sockfd, HTTP_Response *response)
 {
+    char *buffer;
+    // Serialize response line and headers
+    int size = serialize_http_response(response, &buffer);
+    if (size < 0)
+    {
+        return -1;
+    }
+
+    // Send response line and headers
+    if (sendall(sockfd, buffer, size) < 0)
+    {
+        perror("send headers");
+        free(buffer);
+        return -1;
+    }
+    free(buffer);
+
+    // Send body if it exists
+    if (response->body != NULL)
+    {
+        int body_len = strlen(response->body);
+        if (send_all(sockfd, response->body, body_len) < 0)
+        {
+            perror("send body");
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 HTTP_Response *receive_http_response(int sockfd)
 {
+    char buffer[DEFAULT_BUFFER_SIZE];
+    char *header_end_ptr, *headers_part;
+    const char *content_length_str, *line_ending;
+    int already_read, body_length, header_end, size;
+    HTTP_Response *response;
+
+    line_ending = "\r\n";
+
+    // Read headers first
+    size = read_until_double_crlf(sockfd, buffer, DEFAULT_BUFFER_SIZE);
+    if (size <= 0)
+    {
+        return NULL;
+    }
+
+    buffer[size] = '\0'; // Null-terminate the received data
+
+    // Find the end of the headers, marked by \r\n\r\n
+    header_end_ptr = strstr(buffer, "\r\n\r\n");
+    if (header_end_ptr == NULL)
+    {
+        fprintf(stderr, "Formato inválido de HTTP request\n");
+        return NULL;
+    }
+
+    // Calculate the position of the end of the headers
+    header_end = header_end_ptr - buffer + (sizeof(line_ending) * 2); // move past \r\n\r\n
+
+    // Deserialize the headers part
+    headers_part = (char *)malloc((header_end + 1) * sizeof(char));
+    if (headers_part == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria para headers_part\n");
+        return NULL;
+    }
+
+    strncpy(headers_part, buffer, header_end);
+    headers_part[header_end] = '\0'; // Null-terminate
+
+    response = deserialize_http_response(headers_part);
+    free(headers_part);
+
+    // Get the Content-Length header value
+    content_length_str = find_header_value(response->headers, response->header_count, "Content-Length");
+    body_length = 0;
+    if (content_length_str != NULL)
+    {
+        body_length = atoi(content_length_str); // Convert Content-Length to an integer
+    }
+
+    // Read the body if it exists
+    if (body_length > 0)
+    {
+        response->body = (char *)malloc((body_length + 1) * sizeof(char)); // +1 for null-terminator
+        if (response->body == NULL)
+        {
+            fprintf(stderr, "Error al asignar memoria para body\n");
+            free_http_request(response);
+            return NULL;
+        }
+
+        // Check if any of the body was already read in the initial read
+        already_read = size - header_end;
+        if (already_read < 0)
+        {
+            already_read = 0;
+        }
+        else if (already_read > 0)
+        {
+            strncpy(response->body, buffer + header_end, already_read);
+        }
+
+        // Read the remaining body
+        if (recvall(sockfd, response->body + already_read, body_length - already_read) <= 0)
+        {
+            free_http_request(response);
+            return NULL;
+        }
+        response->body[body_length] = '\0'; // Null-terminate the body
+    }
+    else
+    {
+        response->body = NULL;
+    }
+
+    return response;
 }
 
 int read_until_double_end_line(int sockfd, char *buffer, int length)
