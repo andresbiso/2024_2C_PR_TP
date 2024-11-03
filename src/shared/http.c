@@ -18,7 +18,7 @@
 #include <sys/wait.h>
 
 // Shared headers
-#include "common.h"
+// #include "common.h"
 
 // Project header
 #include "http.h"
@@ -190,6 +190,14 @@ const char *find_header_value(Header *headers, int header_count, const char *key
         }
     }
     return NULL; // Return NULL if the header is not found
+}
+
+void log_headers(Header *headers, int header_count)
+{
+    for (int i = 0; i < header_count; ++i)
+    {
+        printf("%s: %s\n", headers[i].key, headers[i].value);
+    }
 }
 
 HTTP_Request *create_http_request(const char *method, const char *uri, const char *version, const Header *headers, int header_count, const char *body)
@@ -561,4 +569,40 @@ HTTP_Response *receive_http_response(int sockfd)
     response->body[size] = '\0';
 
     return response;
+}
+
+const char *get_extension(const char *content_type)
+{
+    if (strstr(content_type, "image/jpeg") != NULL)
+    {
+        return ".jpg";
+    }
+    else if (strstr(content_type, "image/png") != NULL)
+    {
+        return ".png";
+    }
+    else if (strstr(content_type, "image/gif") != NULL)
+    {
+        return ".gif";
+    }
+    else if (strstr(content_type, "image/bmp") != NULL)
+    {
+        return ".bmp";
+    }
+    else if (strstr(content_type, "image/tiff") != NULL)
+    {
+        return ".tiff";
+    }
+    else if (strstr(content_type, "text/plain") != NULL)
+    {
+        return ".txt";
+    }
+    else if (strstr(content_type, "application/pdf") != NULL)
+    {
+        return ".pdf";
+    }
+    else
+    {
+        return NULL;
+    }
 }

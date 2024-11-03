@@ -44,6 +44,7 @@ int remove_header(Header **headers, int *header_count, const char *key);
 int serialize_headers(const Header *headers, int header_count, char **buffer);
 Header *deserialize_headers(const char *headers_str, int *header_count);
 const char *find_header_value(Header *headers, int header_count, const char *key);
+void log_headers(Header *headers, int header_count);
 
 HTTP_Request *create_http_request(const char *method, const char *uri, const char *version, const Header *headers, int header_count, const char *body);
 void free_http_request(HTTP_Request *packet);
@@ -58,5 +59,7 @@ int serialize_http_response(HTTP_Response *response, char **buffer);
 HTTP_Response *deserialize_http_response(const char *buffer);
 int send_http_response(int sockfd, HTTP_Response *response);
 HTTP_Response *receive_http_response(int sockfd);
+
+const char *get_extension(const char *content_type);
 
 #endif // COMMON_H

@@ -18,6 +18,7 @@
 
 // Shared headers
 #include "../shared/common.h"
+#include "../shared/http.h"
 
 // Project header
 #include "client.h"
@@ -314,19 +315,66 @@ int handle_connection(int sockfd)
 
 int handle_connection_http(int sockfd)
 {
-    char message[DEFAULT_BUFFER_SIZE];
     ssize_t recv_val;
-    Simple_Packet *send_packet, *recv_packet;
+    // Create headers with Host
+    int header_count = 1;
+    Header *headers = create_headers(header_count);
+    add_header(&headers, &header_count, "Host", "your.server.com");
 
-    send_packet = NULL;
-    recv_packet = NULL;
+    // Create the HTTP request with Host header
+    HTTP_Request *request = create_http_request("GET", "/path/to/resource", "HTTP/1.1", headers, header_count, NULL);
+    char *request_buffer;
+    serialize_http_request(request, &request_buffer);
+    printf("Request:\n%s\n", request_buffer);
 
-    if (sockfd <= 0)
+    send_http_request(sockfd, request);
+    free(request_buffer);
+    free_http_request(request);
+    free_headers(headers, header_count);
+
+    // Receive the HTTP response
+    HTTP_Response *response = receive_http_response(sockfd);
+    printf("Response Line: %s %d %s\n", response->response_line.version, response->response_line.status_code, response->response_line.reason_phrase);
+    printf("Headers:\n");
+    log_headers(response->headers, response->header_count);
+
+    // Check for content type
+    const char *content_type = find_header_value(response->headers, response->header_count, "Content-Type");
+    const char *extension = get_extension(content_type);
+
+    if (extension)
     {
-        return -1;
+        // Read the body separately if not fully received
+        int content_length = atoi(find_header_value(response->headers, response->header_count, "Content-Length"));
+        char *body = malloc(content_length + 1);
+        int total_received = 0;
+        while (total_received < content_length)
+        {
+            int received = recv(sockfd, body + total_received, content_length - total_received, 0);
+            total_received += received;
+        }
+        body[content_length] = '\0';
+        printf("Body received, saving to file\n");
+
+        // Print the body or save to a file
+        char filename[64];
+        snprintf(filename, sizeof(filename), "resource%s", extension);
+        FILE *file = fopen(filename, "wb");
+        fwrite(body, 1, content_length, file);
+        fclose(file);
+
+        // Clean up
+        free(body);
+    }
+    else
+    {
+        printf("Content type is not recognized.\n");
     }
 
-    free_simple_packet(recv_packet);
-    recv_packet = NULL;
+    free_http_response(response);
+    close(sockfd);
+
+    printf("Done!\n");
+
     return 0;
 }
