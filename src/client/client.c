@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     int mode, ret_val;
     int sockfd; // listen on sock_fd
 
-    strcpy(external_ip, EXTERNAL_IP);
+    strcpy(external_ip, "");
     strcpy(external_port, "");
     strcpy(resource, DEFAULT_RESOURCE);
 
@@ -43,6 +43,19 @@ int main(int argc, char *argv[])
     else if (ret_val < 0)
     {
         return EXIT_FAILURE;
+    }
+
+    // Assign default ip
+    if (strcmp(external_ip, "") == 0)
+    {
+        if (mode == 0)
+        {
+            strcpy(external_ip, EXTERNAL_IP);
+        }
+        else
+        {
+            strcpy(external_ip, EXTERNAL_IP_EXPOSED);
+        }
     }
 
     // Assign default port

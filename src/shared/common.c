@@ -417,7 +417,7 @@ void simulate_work()
 int find_max(int num, ...)
 {
     va_list valist;
-    int max;
+    int i, current, max;
 
     // Initialize valist for num number of arguments
     va_start(valist, num);
@@ -426,9 +426,9 @@ int find_max(int num, ...)
     max = va_arg(valist, int);
 
     // Loop through the remaining arguments to find the max
-    for (int i = 1; i < num; i++)
+    for (i = 1; i < num; i++)
     {
-        int current = va_arg(valist, int);
+        current = va_arg(valist, int);
         if (current > max)
         {
             max = current;

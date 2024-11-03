@@ -9,11 +9,12 @@
 #include <sys/types.h>
 
 // Constants
-#define EXTERNAL_IP "127.0.0.1"   // The ip client will be connecting to
-#define EXTERNAL_PORT "3490"      // The port client will be connecting to
-#define EXTERNAL_PORT_HTTP "3030" // The port client will be connecting to
-#define PORTSTRLEN 6              // Enough to hold "65535" + '\0'
-#define DEFAULT_MODE 0            // 0: test mode; 1: http mode
+#define EXTERNAL_IP "127.0.0.1"       // The ip client will be connecting to
+#define EXTERNAL_IP_EXPOSED "0.0.0.0" // The ip client will be connecting to from inside or outside docker
+#define EXTERNAL_PORT "3490"          // The port client will be connecting to
+#define EXTERNAL_PORT_HTTP "3030"     // The port client will be connecting to
+#define PORTSTRLEN 6                  // Enough to hold "65535" + '\0'
+#define DEFAULT_MODE 0                // 0: test mode; 1: http mode
 #define DEFAULT_RESOURCE "/server.png"
 #define DEFAULT_HOST "localhost"
 #define DEFAULT_HTTP_METHOD "GET"

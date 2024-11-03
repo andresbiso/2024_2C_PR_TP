@@ -146,8 +146,10 @@ Recomiendo:
 
 1. Abrir a compose.yml.
 2. Ir a ports.
-3. Configurar HOST_PORT:CONTAINER_PORT.
+3. Configurar HOST_PORT:CONTAINER_PORT o "HOST_IP:HOST_PORT:CONTAINER_PORT"
+4. Luego de crear el container, ejecutar `docker ps` y verificar que se vea el puerto configurado.
 
+- Aclaración: debemos realizar el bind() a "0.0.0.0" (wildcard address) para exponer el port hacia fuera del docker.
 - Más información: https://docs.docker.com/compose/how-tos/networking/
 
 ## Comandos útiles

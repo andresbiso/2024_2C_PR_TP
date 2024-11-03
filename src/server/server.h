@@ -14,10 +14,11 @@
 
 // Constants
 #define BACKLOG 10                 // How many pending connections queue will hold
-#define LOCAL_IP "127.0.0.1"       // The ip users will be connecting to
-#define LOCAL_PORT_TCP "3490"      // The port users will be connecting for TCP
-#define LOCAL_PORT_UDP "3491"      // The port users will be connecting for UDP
-#define LOCAL_PORT_TCP_HTTP "3030" // The port users will be connecting for TCP HTTP
+#define LOCAL_IP "127.0.0.1"       // The ip clients will be connecting to
+#define LOCAL_IP_EXPOSED "0.0.0.0" // The ip clients will be connecting to from inside or outside docker
+#define LOCAL_PORT_TCP "3490"      // The port clients will be connecting for TCP
+#define LOCAL_PORT_UDP "3491"      // The port clients will be connecting for UDP
+#define LOCAL_PORT_TCP_HTTP "3030" // The port clients will be connecting for TCP HTTP
 #define PORTSTRLEN 6               // Enough to hold "65535" + '\0'
 #define VERSION "0.0.1"
 

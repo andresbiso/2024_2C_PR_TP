@@ -29,6 +29,7 @@
 
 volatile sig_atomic_t stop;
 pthread_mutex_t lock;
+pthread_mutex_t lock_file;
 
 int main(int argc, char *argv[])
 {
@@ -44,7 +45,13 @@ int main(int argc, char *argv[])
 
     if (pthread_mutex_init(&lock, NULL) != 0)
     {
-        perror("server: error en mutex init\n");
+        perror("server: error en lock init\n");
+        return EXIT_FAILURE;
+    }
+
+    if (pthread_mutex_init(&lock_file, NULL) != 0)
+    {
+        perror("server: error en lock_file init\n");
         return EXIT_FAILURE;
     }
 
@@ -62,16 +69,17 @@ int main(int argc, char *argv[])
     {
         return EXIT_FAILURE;
     }
-    sockfd_tcp_http = setup_server_tcp(local_ip, local_port_tcp_http);
-    if (sockfd_tcp <= 0)
-    {
-        return EXIT_FAILURE;
-    }
     sockfd_udp = setup_server_udp(local_ip, local_port_udp);
     if (sockfd_udp <= 0)
     {
         return EXIT_FAILURE;
     }
+    sockfd_tcp_http = setup_server_tcp(LOCAL_IP_EXPOSED, local_port_tcp_http);
+    if (sockfd_tcp <= 0)
+    {
+        return EXIT_FAILURE;
+    }
+    printf("server: TCP %s:%d: exclusivo para HTTP\n", LOCAL_IP_EXPOSED, atoi(local_port_tcp_http));
     setup_signals();
     ret_val = handle_connections(sockfd_tcp, sockfd_udp, sockfd_tcp_http);
     if (ret_val < 0)
@@ -83,6 +91,7 @@ int main(int argc, char *argv[])
     close(sockfd_udp);
     close(sockfd_tcp_http);
     pthread_mutex_destroy(&lock);
+    pthread_mutex_destroy(&lock_file);
     puts("server: finalizando");
     return EXIT_SUCCESS;
 }
@@ -452,9 +461,10 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                     // if it is the TCP HTTP listening socket
                     else if (i == sockfd_tcp_http)
                     {
+                        puts("hola: )");
                         // handle new connection
                         sin_size = sizeof(their_addr);
-                        if ((new_fd = accept(sockfd_tcp, &their_addr, &sin_size)) == -1)
+                        if ((new_fd = accept(sockfd_tcp_http, &their_addr, &sin_size)) == -1)
                         {
                             ret_val = -1;
                             perror("server: accept");
@@ -476,7 +486,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                         their_port = ((struct sockaddr_in *)&their_addr)->sin_port;
 
                         http_clients[new_fd] = create_client_http_data(new_fd, their_ipstr, their_port);
-                        if (clients[new_fd] == NULL)
+                        if (http_clients[new_fd] == NULL)
                         {
                             ret_val = -1;
                             FD_CLR(new_fd, &master);
@@ -1123,10 +1133,7 @@ void *handle_client_http_read(void *arg)
     printf("Thread HTTP (%s:%d): HTTP request headers:\n",
            client_data->client_ipstr,
            client_data->client_port);
-    for (int i = 0; i < client_data->request->header_count; i++)
-    {
-        printf("%s: %s\n", client_data->request->headers[i].key, client_data->request->headers[i].value);
-    }
+    log_headers(client_data->request->headers, client_data->request->header_count);
 
     // Log body if present
     if (client_data->request->body)
@@ -1354,7 +1361,7 @@ Client_Http_Data **init_clients_http_data(int len)
         fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
         return NULL;
     }
-    memset(clients, 0, len * sizeof(Client_Http_Data *));
+    memset(clients, 0, len * sizeof(Client_Http_Data));
     return clients;
 }
 
