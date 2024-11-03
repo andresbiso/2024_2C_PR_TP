@@ -25,16 +25,17 @@
 
 int main(int argc, char *argv[])
 {
-    char external_ip[INET_ADDRSTRLEN], external_port[PORTSTRLEN];
+    char external_ip[INET_ADDRSTRLEN], external_port[PORTSTRLEN], resource[DEFAULT_BUFFER_SIZE];
     int mode, ret_val;
     int sockfd; // listen on sock_fd
 
     strcpy(external_ip, EXTERNAL_IP);
     strcpy(external_ip, "");
+    strcpy(resource, DEFAULT_RESOURCE);
 
     mode = DEFAULT_MODE;
 
-    ret_val = parse_arguments(argc, argv, external_ip, external_port, mode);
+    ret_val = parse_arguments(argc, argv, external_ip, external_port, mode, resource);
     if (ret_val > 0)
     {
         return EXIT_SUCCESS;
@@ -82,7 +83,7 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-int parse_arguments(int argc, char *argv[], char *external_ip, char *external_port, int mode)
+int parse_arguments(int argc, char *argv[], char *external_ip, char *external_port, int mode, char *resource)
 {
     int ret_val;
 
@@ -128,6 +129,11 @@ int parse_arguments(int argc, char *argv[], char *external_ip, char *external_po
                     break;
                 }
             }
+            else if (strcmp(argv[i], "--resource") == 0 && i + 1 < argc)
+            {
+                strcpy(resource, argv[i + 1]);
+                i++; // Skip the next argument since it's the port number
+            }
             else
             {
                 printf("client: opción o argumento no soportado: %s\n", argv[i]);
@@ -144,11 +150,12 @@ void show_help()
 {
     puts("Uso: client [opciones]");
     puts("Opciones:");
-    puts("  --help      Muestra este mensaje de ayuda");
-    puts("  --version   Muestra version del programa");
-    puts("  --external-ip <ip> Especificar el número de ip externo");
-    puts("  --external-port <puerto> Especificar el número de puerto externo");
-    puts("  --mode <0|1>          0: modo test; 1: modo http; (Default: modo test)");
+    puts("  --help    Muestra este mensaje de ayuda");
+    puts("  --version    Muestra version del programa");
+    puts("  --external-ip <ip>    Especificar el número de ip externo");
+    puts("  --external-port <puerto>    Especificar el número de puerto externo");
+    puts("  --mode <0|1>    0: modo test; 1: modo http; (Default: modo test)");
+    puts("  --resource <recurso>    Especificar el recurso del request (Solo modo http)");
 }
 
 void show_version()
@@ -313,16 +320,15 @@ int handle_connection(int sockfd)
     return 0;
 }
 
-int handle_connection_http(int sockfd)
+int handle_connection_http(int sockfd, const char *resource)
 {
-    ssize_t recv_val;
     // Create headers with Host
     int header_count = 1;
     Header *headers = create_headers(header_count);
-    add_header(&headers, &header_count, "Host", "your.server.com");
+    add_header(&headers, &header_count, "Host", DEFAULT_RESOURCE);
 
     // Create the HTTP request with Host header
-    HTTP_Request *request = create_http_request("GET", "/path/to/resource", "HTTP/1.1", headers, header_count, NULL);
+    HTTP_Request *request = create_http_request(DEFAULT_HTTP_METHOD, resource, DEFAULT_HTTP_VERSION, headers, header_count, NULL);
     char *request_buffer;
     serialize_http_request(request, &request_buffer);
     printf("Request:\n%s\n", request_buffer);
@@ -334,47 +340,56 @@ int handle_connection_http(int sockfd)
 
     // Receive the HTTP response
     HTTP_Response *response = receive_http_response(sockfd);
+    if (response == NULL)
+    {
+        close(sockfd);
+        return -1;
+    }
+
     printf("Response Line: %s %d %s\n", response->response_line.version, response->response_line.status_code, response->response_line.reason_phrase);
     printf("Headers:\n");
     log_headers(response->headers, response->header_count);
 
-    // Check for content type
+    // Check for specific headers
     const char *content_type = find_header_value(response->headers, response->header_count, "Content-Type");
+    const char *charset = find_header_value(response->headers, response->header_count, "charset");
+    const char *connection = find_header_value(response->headers, response->header_count, "Connection");
+
+    printf("Content-Type: %s\n", content_type);
+    printf("Charset: %s\n", charset);
+    printf("Connection: %s\n", connection);
+
     const char *extension = get_extension(content_type);
 
     if (extension)
     {
-        // Read the body separately if not fully received
-        int content_length = atoi(find_header_value(response->headers, response->header_count, "Content-Length"));
-        char *body = malloc(content_length + 1);
-        int total_received = 0;
-        while (total_received < content_length)
-        {
-            int received = recv(sockfd, body + total_received, content_length - total_received, 0);
-            total_received += received;
-        }
-        body[content_length] = '\0';
         printf("Body received, saving to file\n");
 
-        // Print the body or save to a file
+        // Save the body to a file
         char filename[64];
         snprintf(filename, sizeof(filename), "resource%s", extension);
         FILE *file = fopen(filename, "wb");
-        fwrite(body, 1, content_length, file);
+        fwrite(response->body, 1, strlen(response->body), file);
         fclose(file);
-
-        // Clean up
-        free(body);
     }
     else
     {
         printf("Content type is not recognized.\n");
+        free_http_response(response);
+        return -1;
     }
 
     free_http_response(response);
-    close(sockfd);
 
-    printf("Done!\n");
+    // Check for "Connection: close" header to close the socket
+    if (connection && strcmp(connection, "close") == 0)
+    {
+        printf("Connection is close. Terminating the client.\n");
+    }
+    else
+    {
+        printf("Keeping the connection open.\n");
+    }
 
     return 0;
 }

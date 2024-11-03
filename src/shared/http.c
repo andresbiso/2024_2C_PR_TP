@@ -18,7 +18,7 @@
 #include <sys/wait.h>
 
 // Shared headers
-// #include "common.h"
+#include "common.h"
 
 // Project header
 #include "http.h"
@@ -537,9 +537,9 @@ int send_http_response(int sockfd, HTTP_Response *response)
     return 0;
 }
 
-HTTP_Response *receive_http_response(int sockfd)
+HTTP_Response *receive_http_response_headers(int sockfd)
 {
-    char buffer[1024];
+    char buffer[DEFAULT_BUFFER_SIZE];
     int size;
     HTTP_Response *response;
 
@@ -552,21 +552,63 @@ HTTP_Response *receive_http_response(int sockfd)
     buffer[size] = '\0'; // Null-terminate the received data
     response = deserialize_http_response(buffer);
 
-    response->body = (char *)malloc(1024 * sizeof(char));
+    if (response == NULL)
+    {
+        fprintf(stderr, "Error deserializing HTTP response\n");
+        return NULL;
+    }
+
+    return response;
+}
+
+int receive_http_response_body(int sockfd, HTTP_Response *response)
+{
+    const char *content_length_str = find_header_value(response->headers, response->header_count, "Content-Length");
+    if (content_length_str == NULL)
+    {
+        fprintf(stderr, "Content-Length header not found\n");
+        return -1;
+    }
+
+    int content_length = atoi(content_length_str);
+    response->body = (char *)malloc(content_length + 1);
     if (response->body == NULL)
     {
         fprintf(stderr, "Error allocating memory for body\n");
-        free_http_response(response);
-        return NULL;
+        return -1;
     }
-    size = recv(sockfd, response->body, 1024, 0); // Adjust size as needed
-    if (size < 0)
+
+    int total_received = 0;
+    while (total_received < content_length)
     {
-        perror("recv body");
+        int received = recv(sockfd, response->body + total_received, content_length - total_received, 0);
+        if (received < 0)
+        {
+            perror("recv body");
+            free(response->body);
+            response->body = NULL;
+            return -1;
+        }
+        total_received += received;
+    }
+    response->body[content_length] = '\0';
+
+    return 0;
+}
+
+HTTP_Response *receive_http_response(int sockfd)
+{
+    HTTP_Response *response = receive_http_headers(sockfd);
+    if (response == NULL)
+    {
+        return NULL;
+    }
+
+    if (receive_http_body(sockfd, response) < 0)
+    {
         free_http_response(response);
         return NULL;
     }
-    response->body[size] = '\0';
 
     return response;
 }

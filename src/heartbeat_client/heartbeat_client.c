@@ -116,12 +116,12 @@ void show_help()
 {
     puts("Uso: heartbeat_client [opciones]");
     puts("Opciones:");
-    puts("  --help      Muestra este mensaje de ayuda");
-    puts("  --version   Muestra version del programa");
-    puts("  --local-ip <ip> Especificar el número de ip local");
-    puts("  --local-port <puerto> Especificar el número de puerto local");
-    puts("  --external-ip <ip> Especificar el número de ip externo");
-    puts("  --external-port <puerto> Especificar el número de puerto externo");
+    puts("  --help    Muestra este mensaje de ayuda");
+    puts("  --version    Muestra version del programa");
+    puts("  --local-ip <ip>    Especificar el número de ip local");
+    puts("  --local-port <puerto>    Especificar el número de puerto local");
+    puts("  --external-ip <ip>    Especificar el número de ip externo");
+    puts("  --external-port <puerto>    Especificar el número de puerto externo");
 }
 
 void show_version()

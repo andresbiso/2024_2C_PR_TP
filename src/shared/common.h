@@ -11,7 +11,7 @@
 #include <sys/types.h>
 
 // Constants
-#define DEFAULT_BUFFER_SIZE 100 // Default max number of bytes we can get at once
+#define DEFAULT_BUFFER_SIZE 4096 // Default max number of bytes we can get at once
 #define HEARTBEAT_TIMEOUT_SEC 5
 #define HEARTBEAT_MAX_RETRIES 3
 #define HEARTBEAT_BUF_SIZE 1024

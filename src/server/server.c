@@ -139,12 +139,12 @@ void show_help()
 {
     puts("Uso: server [opciones]");
     puts("Opciones:");
-    puts("  --help      Muestra este mensaje de ayuda");
-    puts("  --version   Muestra version del programa");
-    puts("  --local-ip <ip> Especificar el número de ip local");
-    puts("  --local-port-tcp <puerto> Especificar el número de puerto tcp local");
-    puts("  --local-port-udp <puerto> Especificar el número de puerto udp local");
-    puts("  --local-port-tcp-http <puerto> Especificar el número de puerto tcp http local");
+    puts("  --help    Muestra este mensaje de ayuda");
+    puts("  --version    Muestra version del programa");
+    puts("  --local-ip <ip>    Especificar el número de ip local");
+    puts("  --local-port-tcp <puerto>    Especificar el número de puerto tcp local");
+    puts("  --local-port-udp <puerto>    Especificar el número de puerto udp local");
+    puts("  --local-port-tcp-http <puerto>    Especificar el número de puerto tcp http local");
 }
 
 void show_version()
