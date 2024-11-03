@@ -5,6 +5,7 @@
 #define METHOD_SIZE 16
 #define URI_SIZE 256
 #define VERSION_SIZE 16
+#define REASON_SIZE 256
 
 typedef struct
 {
@@ -59,13 +60,11 @@ HTTP_Request *deserialize_http_request(const char *buffer);
 int send_http_request(int sockfd, HTTP_Request *request);
 HTTP_Request *receive_http_request(int sockfd);
 
-HTTP_Response *create_http_response(const char *version, int status_code, const char *reason_phrase, const Header *headers, int header_count, const char *body);
+HTTP_Response *create_http_response(const char *version, const int status_code, const char *reason_phrase, const Header *headers, int header_count, const char *body);
 void free_http_response(HTTP_Response *response);
 int serialize_http_response(HTTP_Response *response, char **buffer);
 HTTP_Response *deserialize_http_response(const char *buffer);
 int send_http_response(int sockfd, HTTP_Response *response);
-HTTP_Response *receive_http_response_headers(int sockfd);
-int receive_http_response_body(int sockfd, HTTP_Response *response);
 HTTP_Response *receive_http_response(int sockfd);
 
 int read_until_double_end_line(int sockfd, char *buffer, int length);
