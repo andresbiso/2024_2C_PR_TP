@@ -461,7 +461,6 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                     // if it is the TCP HTTP listening socket
                     else if (i == sockfd_tcp_http)
                     {
-                        puts("hola: )");
                         // handle new connection
                         sin_size = sizeof(their_addr);
                         if ((new_fd = accept(sockfd_tcp_http, &their_addr, &sin_size)) == -1)

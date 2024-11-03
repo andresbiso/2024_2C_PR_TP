@@ -686,6 +686,11 @@ HTTP_Response *deserialize_http_response_header(const char *buffer)
     response->response_line.version = (char *)malloc(strlen(version) + 1);
     strcpy(response->response_line.version, version);
 
+    response->response_line.status_code = status_code;
+
+    response->response_line.reason_phrase = (char *)malloc(strlen(reason_phrase) + 1);
+    strcpy(response->response_line.reason_phrase, reason_phrase);
+
     // Find the end of headers, marked by \r\n\r\n
     header_end_ptr = strstr(temp_buffer, "\r\n\r\n");
     if (header_end_ptr == NULL)
@@ -811,37 +816,37 @@ HTTP_Response *receive_http_response(int sockfd)
 
 int read_until_double_end_line(int sockfd, char *buffer, int length)
 {
-    int total; // Total bytes received
-    int n;
+    int total_bytes; // Total bytes received
+    int bytes_recv;
     char *end_of_headers;
 
-    total = 0;
-    while (total < length)
+    total_bytes = 0;
+    while (total_bytes < length)
     {
-        n = recv(sockfd, buffer + total, length - total, 0);
-        if (n == -1)
+        bytes_recv = recv(sockfd, buffer + total_bytes, length - total_bytes, 0);
+        if (bytes_recv == -1)
         {
             perror("recv");
             return -1; // Error
         }
-        if (n == 0)
+        else if (bytes_recv == 0)
         {
             // Connection closed
-            return total;
+            return 0;
         }
-        total += n;
-        buffer[total] = '\0';
+        total_bytes += bytes_recv;
+        buffer[total_bytes] = '\0';
 
         // Check if we've received two consecutive CRLF
         end_of_headers = strstr(buffer, "\r\n\r\n");
         if (end_of_headers != NULL)
         {
             // Found the end of headers
-            return total;
+            break;
         }
     }
 
-    return total; // Return total bytes received
+    return total_bytes; // Return total bytes received
 }
 
 const char *get_extension(const char *content_type)
