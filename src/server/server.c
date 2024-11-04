@@ -519,10 +519,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                         {
                             if (thread_result->value == THREAD_RESULT_ERROR)
                             {
-                                perror("server: error en lectura");
-                                ret_val = -1;
-                                free(thread_result);
-                                break;
+                                fprintf(stderr, "server: error en lectura de packet UDP\n");
                             }
                             free(thread_result);
                         }
@@ -559,15 +556,14 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                         {
                             if (thread_result->value == THREAD_RESULT_ERROR)
                             {
-                                perror("server: error en lectura");
-                                ret_val = -1;
+                                printf("server: cliente (%s:%d) error en lectura\n", http_clients[i]->client_ipstr, http_clients[i]->client_port);
+                                printf("server: cliente (%s:%d) cerrando conexión\n", http_clients[i]->client_ipstr, http_clients[i]->client_port);
                                 free_client_http_data(&http_clients[i]);
                                 FD_CLR(i, &master);
-                                free(thread_result);
-                                break;
                             }
                             else if (thread_result->value == THREAD_RESULT_CLOSED)
                             {
+                                printf("server: cliente (%s:%d) cerró su conexión\n", http_clients[i]->client_ipstr, http_clients[i]->client_port);
                                 free_client_http_data(&http_clients[i]);
                                 FD_CLR(i, &master);
                             }
@@ -606,15 +602,14 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                         {
                             if (thread_result->value == THREAD_RESULT_ERROR)
                             {
-                                perror("server: error en lectura");
-                                ret_val = -1;
+                                printf("server: cliente (%s:%d) error en lectura\n", clients[i]->client_ipstr, clients[i]->client_port);
+                                printf("server: cliente (%s:%d) cerrando conexión\n", clients[i]->client_ipstr, clients[i]->client_port);
                                 free_client_tcp_data(&clients[i]);
                                 FD_CLR(i, &master);
-                                free(thread_result);
-                                break;
                             }
                             else if (thread_result->value == THREAD_RESULT_CLOSED)
                             {
+                                printf("server: cliente (%s:%d) cerró su conexión\n", clients[i]->client_ipstr, clients[i]->client_port);
                                 free_client_tcp_data(&clients[i]);
                                 FD_CLR(i, &master);
                             }
@@ -654,10 +649,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                         {
                             if (thread_result->value == THREAD_RESULT_ERROR)
                             {
-                                perror("server: error en escritura");
-                                ret_val = -1;
-                                free(thread_result);
-                                break;
+                                fprintf(stderr, "server: error en escritura de packet UDP\n");
                             }
                             free(thread_result);
                         }
@@ -694,15 +686,14 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                         {
                             if (thread_result->value == THREAD_RESULT_ERROR)
                             {
-                                perror("server: error en lectura");
-                                ret_val = -1;
+                                printf("server: cliente (%s:%d) error en escritura\n", http_clients[i]->client_ipstr, http_clients[i]->client_port);
+                                printf("server: cliente (%s:%d) cerrando conexión\n", http_clients[i]->client_ipstr, http_clients[i]->client_port);
                                 free_client_http_data(&http_clients[i]);
                                 FD_CLR(i, &master);
-                                free(thread_result);
-                                break;
                             }
                             else if (thread_result->value == THREAD_RESULT_CLOSED)
                             {
+                                printf("server: cliente (%s:%d) cerró su conexión\n", http_clients[i]->client_ipstr, http_clients[i]->client_port);
                                 free_client_http_data(&http_clients[i]);
                                 FD_CLR(i, &master);
                             }
@@ -741,15 +732,14 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                         {
                             if (thread_result->value == THREAD_RESULT_ERROR)
                             {
-                                perror("server: error en escritura");
-                                ret_val = -1;
+                                printf("server: cliente (%s:%d) error en escritura\n", clients[i]->client_ipstr, clients[i]->client_port);
+                                printf("server: cliente (%s:%d) cerrando conexión\n", clients[i]->client_ipstr, clients[i]->client_port);
                                 free_client_tcp_data(&clients[i]);
                                 FD_CLR(i, &master);
-                                free(thread_result);
-                                break;
                             }
                             else if (thread_result->value == THREAD_RESULT_CLOSED)
                             {
+                                printf("server: cliente (%s:%d) cerró su conexión\n", clients[i]->client_ipstr, clients[i]->client_port);
                                 free_client_tcp_data(&clients[i]);
                                 FD_CLR(i, &master);
                             }
@@ -767,22 +757,30 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                 {
                     select_ret--;
                     // handle exceptions on the socket
-                    perror("server: excepción en socket");
+                    fprintf(stderr, "server: excepción en socket\n");
                     if (i != sockfd_tcp && i != heartbeat_data->sockfd && i != sockfd_tcp_http)
                     {
                         if (index_in_client_http_data_array(http_clients, MAX_CLIENTS, i))
                         {
+                            printf("server: cliente (%s:%d) problema en conexión\n", http_clients[i]->client_ipstr, http_clients[i]->client_port);
+                            printf("server: cliente (%s:%d) cerrando conexión\n", http_clients[i]->client_ipstr, http_clients[i]->client_port);
                             free_client_http_data(&http_clients[i]);
+                            FD_CLR(i, &master);
                         }
                         else
                         {
+                            printf("server: cliente (%s:%d) problema en conexión\n", clients[i]->client_ipstr, clients[i]->client_port);
+                            printf("server: cliente (%s:%d) cerrando conexión\n", clients[i]->client_ipstr, clients[i]->client_port);
                             free_client_tcp_data(&clients[i]);
+                            FD_CLR(i, &master);
                         }
+                        continue;
+                    }
+                    else
+                    {
                         ret_val = -1;
-                        FD_CLR(i, &master);
                         break;
                     }
-                    continue;
                 }
             } // end for
         } // end select_ret > 0
@@ -840,7 +838,7 @@ void *handle_client_simple_read(void *arg)
     recv_val = recv_simple_packet(client_data->client_sockfd, &client_data->packet);
     if (recv_val == 0)
     {
-        fprintf(stderr, "server: conexión cerrada antes de recibir packet\n");
+        fprintf(stderr, "server: conexión finalizada antes de recibir packet\n");
         free_simple_packet(client_data->packet);
         client_data->packet = NULL;
         thread_result->value = THREAD_RESULT_CLOSED;
@@ -983,7 +981,7 @@ void *handle_client_heartbeat_read(void *arg)
     recv_val = recv_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, heartbeat_data->addr, &heartbeat_data->addrlen);
     if (recv_val == 0)
     {
-        fprintf(stderr, "server: conexión cerrada antes de recibir packet\n");
+        fprintf(stderr, "server: conexión finalizada antes de recibir packet\n");
         free_heartbeat_packet(heartbeat_data->packet);
         heartbeat_data->packet = NULL;
         thread_result->value = THREAD_RESULT_CLOSED;

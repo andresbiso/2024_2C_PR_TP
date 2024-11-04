@@ -277,7 +277,7 @@ int handle_connection(int sockfd)
     recv_val = recv_simple_packet(sockfd, &recv_packet);
     if (recv_val == 0)
     {
-        fprintf(stderr, "client: conexión cerrada antes de recibir packet\n");
+        fprintf(stderr, "client: conexión finalizada antes de recibir packet\n");
         free_simple_packet(recv_packet);
         recv_packet = NULL;
         return 0;
@@ -315,7 +315,7 @@ int handle_connection(int sockfd)
     recv_val = recv_simple_packet(sockfd, &recv_packet);
     if (recv_val == 0)
     {
-        fprintf(stderr, "client: conexión cerrada antes de recibir packet\n");
+        fprintf(stderr, "client: conexión finalizada antes de recibir packet\n");
         free_simple_packet(recv_packet);
         recv_packet = NULL;
         return 0;
@@ -409,7 +409,7 @@ int handle_connection_http(int sockfd, const char *resource)
     // Check for "Connection: close" header to close the socket
     if (connection && strcmp(connection, "close") == 0)
     {
-        printf("client: conexión cerrada. Finalizando...\n");
+        printf("client: recibido \"Connection: close\". Finalizando...\n");
     }
     else
     {
