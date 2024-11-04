@@ -56,5 +56,6 @@ Heartbeat_Data *create_heartbeat_data(int sockfd);
 void free_heartbeat_data(Heartbeat_Data *data);
 void simulate_work();
 int find_max(int num, ...);
+void print_buffer(const char *buffer);
 
 #endif // COMMON_H

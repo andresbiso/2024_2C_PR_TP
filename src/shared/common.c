@@ -440,3 +440,24 @@ int find_max(int num, ...)
 
     return max;
 }
+
+void print_buffer(const char *buffer)
+{
+    while (*buffer)
+    {
+        if (*buffer == '\r')
+        {
+            printf("\\r");
+        }
+        else if (*buffer == '\n')
+        {
+            printf("\\n");
+        }
+        else
+        {
+            putchar(*buffer);
+        }
+        buffer++;
+    }
+    printf("\n");
+}
