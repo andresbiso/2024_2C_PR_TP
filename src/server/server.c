@@ -362,7 +362,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
     FD_SET(sockfd_tcp, &master);
     FD_SET(sockfd_udp, &master);
     FD_SET(sockfd_tcp_http, &master);
-    find_max(3, sockfd_tcp, sockfd_udp, sockfd_tcp_http);
+    max_fd = find_max(3, sockfd_tcp, sockfd_udp, sockfd_tcp_http);
 
     timeout.tv_sec = 1; // Wait for 1 seconds
     timeout.tv_usec = 0;
