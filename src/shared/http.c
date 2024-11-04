@@ -60,7 +60,7 @@ int add_header(Header **headers, int *header_index, int *header_count, const cha
 {
     if (*header_index >= *header_count)
     {
-        *header_count *= 2;
+        *header_count += 1;
         *headers = (Header *)realloc(*headers, (*header_count) * sizeof(Header));
         if (*headers == NULL)
         {
@@ -126,7 +126,7 @@ int remove_header(Header **headers, int *header_index, int *header_count, const 
     return -1; // Header not found
 }
 
-int serialize_headers(const Header *headers, int header_count, char **buffer)
+int serialize_headers(Header *headers, int header_count, char **buffer)
 {
     const char *key_value_separator;
     const char *line_ending;

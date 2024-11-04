@@ -1,7 +1,7 @@
 #ifndef HTTP_H
 #define HTTP_H
 
-#define INITIAL_HEADER_COUNT 10
+#define INITIAL_HEADER_COUNT 1
 #define METHOD_SIZE 16
 #define URI_SIZE 256
 #define VERSION_SIZE 16
@@ -48,7 +48,7 @@ void free_headers(Header **headers, int header_count);
 void free_header(Header *header);
 int add_header(Header **headers, int *header_index, int *header_count, const char *key, const char *value);
 int remove_header(Header **headers, int *header_index, int *header_count, const char *key);
-int serialize_headers(const Header *headers, int header_count, char **buffer);
+int serialize_headers(Header *headers, int header_count, char **buffer);
 Header *deserialize_headers(const char *headers_str, int *header_count);
 const char *find_header_value(Header *headers, int header_count, const char *key);
 void log_headers(Header *headers, int header_count);

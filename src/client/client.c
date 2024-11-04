@@ -354,6 +354,7 @@ int handle_connection_http(int sockfd, const char *resource)
     request = create_http_request(DEFAULT_HTTP_METHOD, resource, DEFAULT_HTTP_VERSION, headers, header_count, NULL);
 
     send_http_request(sockfd, request);
+
     printf("client: request-line enviado: %s %s %s\n",
            request->request_line.method,
            request->request_line.uri,
