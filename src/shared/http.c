@@ -395,7 +395,7 @@ HTTP_Request *deserialize_http_request_header(const char *buffer)
         return NULL;
     }
 
-    temp_buffer = (char *)malloc(strlen(buffer) + 1);
+    temp_buffer = (char *)malloc(sizeof(char) * strlen(buffer) + 1);
     if (temp_buffer == NULL)
     {
         fprintf(stderr, "Error al asignar memoria\n");
@@ -405,7 +405,21 @@ HTTP_Request *deserialize_http_request_header(const char *buffer)
     strcpy(temp_buffer, buffer);
 
     line = strtok(temp_buffer, "\r\n");
-    sscanf(line, "%s %s %s", method, uri, version);
+    if (line == NULL)
+    {
+        fprintf(stderr, "strtok falló al tratar de tokenizar el buffer\n");
+        free(temp_buffer);
+        free(request);
+        return NULL;
+    }
+
+    if (sscanf(line, "%s %s %s", method, uri, version) != 3)
+    {
+        fprintf(stderr, "Error al parsear request line\n");
+        free(temp_buffer);
+        free(request);
+        return NULL;
+    }
 
     request->request_line.method = (char *)malloc(strlen(method) + 1);
     strcpy(request->request_line.method, method);
@@ -417,7 +431,7 @@ HTTP_Request *deserialize_http_request_header(const char *buffer)
     strcpy(request->request_line.version, version);
 
     // Find the end of headers, marked by \r\n\r\n
-    header_end_ptr = strstr(temp_buffer, "\r\n\r\n");
+    header_end_ptr = strstr(buffer, "\r\n\r\n");
     if (header_end_ptr == NULL)
     {
         fprintf(stderr, "Formato inválido de HTTP request\n");
@@ -426,7 +440,7 @@ HTTP_Request *deserialize_http_request_header(const char *buffer)
         return NULL;
     }
 
-    header_length = header_end_ptr - temp_buffer + (strlen(line_ending) * 2); // move past \r\n\r\n
+    header_length = header_end_ptr - buffer + (strlen(line_ending) * 2); // move past \r\n\r\n
     headers_part = (char *)malloc((header_length + 1) * sizeof(char));
     if (headers_part == NULL)
     {
@@ -435,7 +449,7 @@ HTTP_Request *deserialize_http_request_header(const char *buffer)
         free_http_request(request);
         return NULL;
     }
-    strncpy(headers_part, temp_buffer, header_length);
+    strncpy(headers_part, buffer, header_length);
     headers_part[header_length] = '\0';
 
     // Use the deserialize_headers function
@@ -671,7 +685,7 @@ HTTP_Response *deserialize_http_response_header(const char *buffer)
         return NULL;
     }
 
-    temp_buffer = (char *)malloc(strlen(buffer) + 1);
+    temp_buffer = (char *)malloc(sizeof(char) * strlen(buffer) + 1);
     if (temp_buffer == NULL)
     {
         fprintf(stderr, "Error al asignar memoria\n");
@@ -681,7 +695,20 @@ HTTP_Response *deserialize_http_response_header(const char *buffer)
     strcpy(temp_buffer, buffer);
 
     line = strtok(temp_buffer, "\r\n");
-    sscanf(line, "%s %d %s", version, &status_code, reason_phrase);
+    if (line == NULL)
+    {
+        fprintf(stderr, "strtok falló al tratar de tokenizar el buffer\n");
+        free(temp_buffer);
+        free(response);
+        return NULL;
+    }
+    if (sscanf(line, "%s %d %s", version, &status_code, reason_phrase) != 3)
+    {
+        fprintf(stderr, "Error al parsear response line\n");
+        free(temp_buffer);
+        free(response);
+        return NULL;
+    }
 
     response->response_line.version = (char *)malloc(strlen(version) + 1);
     strcpy(response->response_line.version, version);
@@ -692,7 +719,7 @@ HTTP_Response *deserialize_http_response_header(const char *buffer)
     strcpy(response->response_line.reason_phrase, reason_phrase);
 
     // Find the end of headers, marked by \r\n\r\n
-    header_end_ptr = strstr(temp_buffer, "\r\n\r\n");
+    header_end_ptr = strstr(buffer, "\r\n\r\n");
     if (header_end_ptr == NULL)
     {
         fprintf(stderr, "Formato inválido de HTTP response\n");
@@ -701,7 +728,7 @@ HTTP_Response *deserialize_http_response_header(const char *buffer)
         return NULL;
     }
 
-    header_length = header_end_ptr - temp_buffer + (strlen(line_ending) * 2); // move past \r\n\r\n
+    header_length = header_end_ptr - buffer + (strlen(line_ending) * 2); // move past \r\n\r\n
     headers_part = (char *)malloc((header_length + 1) * sizeof(char));
     if (headers_part == NULL)
     {
@@ -710,7 +737,7 @@ HTTP_Response *deserialize_http_response_header(const char *buffer)
         free_http_response(response);
         return NULL;
     }
-    strncpy(headers_part, temp_buffer, header_length);
+    strncpy(headers_part, buffer, header_length);
     headers_part[header_length] = '\0';
 
     // Use the deserialize_headers function
