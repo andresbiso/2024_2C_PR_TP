@@ -179,7 +179,7 @@ int setup_server_tcp(char *local_ip, char *local_port)
     sockfd = 0;
 
     // Setup addinfo
-    memset(&hints, 0, sizeof hints);
+    memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET; // AF_INET to force version IPv4
     hints.ai_socktype = SOCK_STREAM;
 
@@ -266,7 +266,7 @@ int setup_server_udp(char *local_ip, char *local_port)
     yes = 1;
 
     // Setup addinfo
-    memset(&hints, 0, sizeof hints);
+    memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET; // AF_INET to force version IPv4
     hints.ai_socktype = SOCK_DGRAM;
 

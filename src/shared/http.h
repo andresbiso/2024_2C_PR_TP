@@ -53,14 +53,14 @@ Header *deserialize_headers(const char *headers_str, int *header_count);
 const char *find_header_value(Header *headers, int header_count, const char *key);
 void log_headers(Header *headers, int header_count);
 
-HTTP_Request *create_http_request(const char *method, const char *uri, const char *version, const Header *headers, int header_count, const char *body);
+HTTP_Request *create_http_request(const char *method, const char *uri, const char *version, Header *headers, int header_count, const char *body);
 void free_http_request(HTTP_Request *request);
 int serialize_http_request_header(HTTP_Request *request, char **buffer);
 HTTP_Request *deserialize_http_request_header(const char *buffer);
 int send_http_request(int sockfd, HTTP_Request *request);
 HTTP_Request *receive_http_request(int sockfd);
 
-HTTP_Response *create_http_response(const char *version, const int status_code, const char *reason_phrase, const Header *headers, int header_count, const char *body);
+HTTP_Response *create_http_response(const char *version, const int status_code, const char *reason_phrase, Header *headers, int header_count, const char *body);
 void free_http_response(HTTP_Response *response);
 int serialize_http_response_header(HTTP_Response *response, char **buffer);
 HTTP_Response *deserialize_http_response_header(const char *buffer);

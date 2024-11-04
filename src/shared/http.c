@@ -256,14 +256,13 @@ void log_headers(Header *headers, int header_count)
     }
 }
 
-HTTP_Request *create_http_request(const char *method, const char *uri, const char *version, const Header *headers, int header_count, const char *body)
+HTTP_Request *create_http_request(const char *method, const char *uri, const char *version, Header *headers, int header_count, const char *body)
 {
-    int header_index, i;
     HTTP_Request *request;
 
     if (method == NULL || uri == NULL || version == NULL || headers == NULL || header_count < 0)
     {
-        puts("Uno o más valores de creación de HTTP Request es inválido\n");
+        fprintf(stderr, "Uno o más valores de creación de HTTP Request es inválido\n");
         return NULL;
     }
 
@@ -273,47 +272,53 @@ HTTP_Request *create_http_request(const char *method, const char *uri, const cha
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
         return NULL;
     }
+    memset(request, 0, sizeof(HTTP_Request));
 
     request->request_line.method = (char *)malloc(strlen(method) + 1);
-    strcpy(request->request_line.method, method);
-
-    request->request_line.uri = (char *)malloc(strlen(uri) + 1);
-    strcpy(request->request_line.uri, uri);
-
-    request->request_line.version = (char *)malloc(strlen(version) + 1);
-    strcpy(request->request_line.version, version);
-
-    request->headers = create_headers(header_count);
-    if (request->headers == NULL)
+    if (request->request_line.method == NULL)
     {
-        fprintf(stderr, "Error al asignar memoria para headers: %s\n", strerror(errno));
-        free(request->request_line.method);
-        free(request->request_line.uri);
-        free(request->request_line.version);
+        fprintf(stderr, "Error al asignar memoria para method\n");
         free(request);
         return NULL;
     }
+    strcpy(request->request_line.method, method);
 
-    request->header_count = header_count;
-    header_index = 0;
-
-    for (i = 0; i < header_count; i++)
+    request->request_line.uri = (char *)malloc(strlen(uri) + 1);
+    if (request->request_line.uri == NULL)
     {
-        if (add_header(&(request->headers), &header_index, &(request->header_count), headers[i].key, headers[i].value) != 0)
-        {
-            fprintf(stderr, "Error al agregar header\n");
-            free(request->request_line.method);
-            free(request->request_line.uri);
-            free(request->request_line.version);
-            free_headers(&(request->headers), request->header_count);
-            free(request);
-            return NULL; // Return NULL to indicate failure
-        }
+        fprintf(stderr, "Error al asignar memoria para uri\n");
+        free(request->request_line.method);
+        free(request);
+        return NULL;
     }
+    strcpy(request->request_line.uri, uri);
+
+    request->request_line.version = (char *)malloc(strlen(version) + 1);
+    if (request->request_line.version == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria para version\n");
+        free(request->request_line.uri);
+        free(request->request_line.method);
+        free(request);
+        return NULL;
+    }
+    strcpy(request->request_line.version, version);
+
+    request->headers = headers;
+    request->header_count = header_count;
 
     if (body != NULL)
     {
         request->body = (char *)malloc(strlen(body) + 1);
+        if (request->body == NULL)
+        {
+            fprintf(stderr, "Error al asignar memoria para body\n");
+            free(request->request_line.version);
+            free(request->request_line.uri);
+            free(request->request_line.method);
+            free(request);
+            return NULL;
+        }
         strcpy(request->body, body);
     }
 
@@ -556,14 +561,13 @@ HTTP_Request *receive_http_request(int sockfd)
     return request;
 }
 
-HTTP_Response *create_http_response(const char *version, const int status_code, const char *reason_phrase, const Header *headers, int header_count, const char *body)
+HTTP_Response *create_http_response(const char *version, const int status_code, const char *reason_phrase, Header *headers, int header_count, const char *body)
 {
-    int header_index, i;
     HTTP_Response *response;
 
-    if (version == NULL || status_code <= 0 || reason_phrase == NULL || headers == NULL || header_count < 0 || body == NULL)
+    if (version == NULL || status_code <= 0 || reason_phrase == NULL || headers == NULL || header_count < 0)
     {
-        puts("Uno o más valores de creación de HTTP Response es inválido\n");
+        fprintf(stderr, "Uno o más valores de creación de HTTP Response es inválido\n");
         return NULL;
     }
 
@@ -575,41 +579,42 @@ HTTP_Response *create_http_response(const char *version, const int status_code, 
     }
 
     response->response_line.version = (char *)malloc(strlen(version) + 1);
+    if (response->response_line.version == NULL)
+    {
+        fprintf(stderr, "Error al asignar memoria para version\n");
+        free(response);
+        return NULL;
+    }
     strcpy(response->response_line.version, version);
 
     response->response_line.status_code = status_code;
 
-    response->response_line.reason_phrase = (char *)malloc(strlen(version) + 1);
-    strcpy(response->response_line.reason_phrase, reason_phrase);
-
-    response->headers = create_headers(header_count);
-    if (response->headers == NULL)
+    response->response_line.reason_phrase = (char *)malloc(strlen(reason_phrase) + 1);
+    if (response->response_line.reason_phrase == NULL)
     {
-        fprintf(stderr, "Error al asignar memoria para headers: %s\n", strerror(errno));
+        fprintf(stderr, "Error al asignar memoria para reason_phrase\n");
         free(response->response_line.version);
-        free(response->response_line.reason_phrase);
         free(response);
         return NULL;
     }
+    strcpy(response->response_line.reason_phrase, reason_phrase);
 
+    response->headers = headers;
     response->header_count = header_count;
-    header_index = 0;
 
-    for (i = 0; i < header_count; i++)
+    if (body != NULL)
     {
-        if (add_header(&(response->headers), &header_index, &(response->header_count), headers[i].key, headers[i].value) != 0)
+        response->body = (char *)malloc(strlen(body) + 1);
+        if (response->body == NULL)
         {
-            fprintf(stderr, "Error al agregar header\n");
+            fprintf(stderr, "Error al asignar memoria para body\n");
             free(response->response_line.version);
             free(response->response_line.reason_phrase);
-            free_headers(&(response->headers), response->header_count);
             free(response);
-            return NULL; // Return NULL to indicate failure
+            return NULL;
         }
+        strcpy(response->body, body);
     }
-
-    response->body = (char *)malloc(strlen(body) + 1);
-    strcpy(response->body, body);
 
     return response;
 }
