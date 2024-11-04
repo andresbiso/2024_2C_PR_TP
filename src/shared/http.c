@@ -261,7 +261,7 @@ HTTP_Request *create_http_request(const char *method, const char *uri, const cha
     int header_index, i;
     HTTP_Request *request;
 
-    if (method == NULL || uri == NULL || version == NULL || headers == NULL || header_count < 0 || body == NULL)
+    if (method == NULL || uri == NULL || version == NULL || headers == NULL || header_count < 0)
     {
         puts("Uno o más valores de creación de HTTP Request es inválido\n");
         return NULL;
@@ -311,8 +311,11 @@ HTTP_Request *create_http_request(const char *method, const char *uri, const cha
         }
     }
 
-    request->body = (char *)malloc(strlen(body) + 1);
-    strcpy(request->body, body);
+    if (body != NULL)
+    {
+        request->body = (char *)malloc(strlen(body) + 1);
+        strcpy(request->body, body);
+    }
 
     return request;
 }

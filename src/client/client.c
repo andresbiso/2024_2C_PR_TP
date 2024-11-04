@@ -337,23 +337,34 @@ int handle_connection(int sockfd)
 int handle_connection_http(int sockfd, const char *resource)
 {
     // Create headers with Host
-    int header_count = 1;
-    Header *headers = create_headers(header_count);
-    add_header(&headers, &header_count, "Host", DEFAULT_RESOURCE);
+    char filename[DEFAULT_FILENAME_SIZE];
+    FILE *file;
+    const char *charset, *connection, *content_type, *extension;
+    int header_index, header_count;
+    Header *headers;
+    HTTP_Request *request;
+    HTTP_Response *response;
+
+    header_index = 0;
+    header_count = INITIAL_HEADER_COUNT;
+    headers = create_headers(header_count);
+    add_header(&headers, &header_index, &header_count, "Host", DEFAULT_HOST);
 
     // Create the HTTP request with Host header
-    HTTP_Request *request = create_http_request(DEFAULT_HTTP_METHOD, resource, DEFAULT_HTTP_VERSION, headers, header_count, NULL);
-    char *request_buffer;
-    serialize_http_request(request, &request_buffer);
-    printf("client: Request:\n%s\n", request_buffer);
+    request = create_http_request(DEFAULT_HTTP_METHOD, resource, DEFAULT_HTTP_VERSION, headers, header_count, NULL);
 
     send_http_request(sockfd, request);
-    free(request_buffer);
+    printf("client: request-line enviado: %s %s %s\n",
+           request->request_line.method,
+           request->request_line.uri,
+           request->request_line.version);
+    puts("client: headers enviados:");
+    log_headers(request->headers, request->header_count);
+
     free_http_request(request);
-    free_headers(headers, header_count);
 
     // Receive the HTTP response
-    HTTP_Response *response = receive_http_response(sockfd);
+    response = receive_http_response(sockfd);
     if (response == NULL)
     {
         close(sockfd);
@@ -365,25 +376,24 @@ int handle_connection_http(int sockfd, const char *resource)
     log_headers(response->headers, response->header_count);
 
     // Check for specific headers
-    const char *content_type = find_header_value(response->headers, response->header_count, "Content-Type");
-    const char *charset = find_header_value(response->headers, response->header_count, "charset");
-    const char *connection = find_header_value(response->headers, response->header_count, "Connection");
+    content_type = find_header_value(response->headers, response->header_count, "Content-Type");
+    charset = find_header_value(response->headers, response->header_count, "charset");
+    connection = find_header_value(response->headers, response->header_count, "Connection");
 
     printf("client: Content-Type: %s\n", content_type);
     printf("client: Charset: %s\n", charset);
     printf("client: Connection: %s\n", connection);
 
-    const char *extension = get_extension(content_type);
+    extension = get_extension(content_type);
 
     if (extension)
     {
         printf("client: Body recibido, guardando archivo\n");
 
         // Save the body to a file
-        char filename[64];
-        snprintf(filename, sizeof(filename), "resource%s", extension);
-        FILE *file = fopen(filename, "wb");
-        fwrite(response->body, 1, strlen(response->body), file);
+        snprintf(filename, sizeof(filename), "assets%s", extension);
+        file = fopen(filename, "wb");
+        fwrite(response->body, sizeof(char), strlen(response->body), file);
         fclose(file);
     }
     else
