@@ -20,6 +20,7 @@
 #define DEFAULT_HTTP_VERSION "HTTP/1.1"
 #define VERSION "0.0.1"
 #define DEFAULT_FILENAME_SIZE 64
+#define DEFAULT_TIMESTAMP_SIZE 50
 
 // Function prototypes
 int handle_connection(int sockfd);

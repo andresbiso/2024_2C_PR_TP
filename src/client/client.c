@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 // Networking headers
@@ -339,11 +340,13 @@ int handle_connection(int sockfd)
 
 int handle_connection_http(int sockfd, const char *resource)
 {
-    // Create headers with Host
+    char timestamp[DEFAULT_TIMESTAMP_SIZE];
     char filename[DEFAULT_FILENAME_SIZE];
     char *formatted_resource;
     const char *connection, *content_length;
     int header_index, header_count;
+    time_t rawtime;
+    struct tm *timeinfo;
     FILE *file;
     Header *headers;
     HTTP_Request *request;
@@ -407,8 +410,17 @@ int handle_connection_http(int sockfd, const char *resource)
             {
                 printf("client: body recibido, guardando archivo...\n");
 
+                // Get the current time
+                time(&rawtime);
+                timeinfo = localtime(&rawtime);
+
+                // Format the time as a timestamp
+                strftime(timestamp, sizeof(timestamp), "%Y%m%d%H%M%S", timeinfo);
+
+                // Create the filename with the timestamp
+                snprintf(filename, sizeof(filename), "%s_%s", timestamp, resource);
+
                 // Save the body to a file
-                snprintf(filename, sizeof(filename), "%s", resource);
                 file = fopen(filename, "wb");
                 if (file == NULL)
                 {
