@@ -112,7 +112,6 @@ ssize_t sendall_with_flags(int sockfd, const void *buf, size_t len, int flags)
 
     data = (const char *)buf;
     total_sent = 0;
-
     while (total_sent < len)
     {
         bytes_sent = send(sockfd, data + total_sent, len - total_sent, flags);

@@ -208,7 +208,7 @@ Header *deserialize_headers(const char *headers_str, int *header_count)
     }
 
     // Copy headers_str to a temporary buffer
-    headers_copy = (char *)malloc(strlen(headers_str) + 1);
+    headers_copy = (char *)malloc(sizeof(char) * strlen(headers_str) + 1);
     if (headers_copy == NULL)
     {
         fprintf(stderr, "Error al asignar memoria\n");
@@ -774,12 +774,12 @@ HTTP_Response *deserialize_http_response_header(const char *buffer)
         return NULL;
     }
 
-    response->response_line.version = (char *)malloc(strlen(version) + 1);
+    response->response_line.version = (char *)malloc(sizeof(char) * strlen(version) + 1);
     strcpy(response->response_line.version, version);
 
     response->response_line.status_code = status_code;
 
-    response->response_line.reason_phrase = (char *)malloc(strlen(reason_phrase) + 1);
+    response->response_line.reason_phrase = (char *)malloc(sizeof(char) * strlen(reason_phrase) + 1);
     strcpy(response->response_line.reason_phrase, reason_phrase);
 
     // Find the end of headers, marked by \r\n\r\n
@@ -793,7 +793,7 @@ HTTP_Response *deserialize_http_response_header(const char *buffer)
     }
 
     header_length = header_end_ptr - buffer + (strlen(line_ending) * 2); // move past \r\n\r\n
-    headers_part = (char *)malloc((header_length + 1) * sizeof(char));
+    headers_part = (char *)malloc(sizeof(char) * header_length + 1);
     if (headers_part == NULL)
     {
         fprintf(stderr, "Error al asignar memoria para headers_part\n");

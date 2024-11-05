@@ -1385,7 +1385,7 @@ void *handle_client_http_write(void *arg)
         free(size_str);
         client_data->response->headers = headers;
         client_data->response->header_count = header_count;
-        client_data->response->body_length = strlen(client_data->response->body);
+        client_data->response->body_length = body_size;
 
         if (send_http_response(client_data->client_sockfd, client_data->response) < 0)
         {
