@@ -1334,7 +1334,7 @@ void *handle_client_http_write(void *arg)
             // Regular files
             if (entry->d_type == DT_REG)
             {
-                body_size += strlen(entry->d_name) + 1; // +1 for '\n'
+                body_size += strlen(entry->d_name) + 2; // +1 for '\r\n'
             }
         }
 

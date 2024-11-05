@@ -534,15 +534,23 @@ int send_http_request(int sockfd, HTTP_Request *request)
 
 HTTP_Request *receive_http_request(int sockfd)
 {
-    char buffer[DEFAULT_BUFFER_SIZE];
+    char *buffer;
     const char *content_length_str;
-    int size;
+    int size, extra_data_length;
     HTTP_Request *request;
 
+    buffer = (char *)malloc(DEFAULT_BUFFER_SIZE);
+    if (buffer == NULL)
+    {
+        fprintf(stderr, "error al asignar memoria: %s\n", strerror(errno));
+        return NULL;
+    }
+
     // Read headers first
-    size = read_until_double_end_line(sockfd, buffer, DEFAULT_BUFFER_SIZE);
+    size = read_until_double_end_line(sockfd, &buffer, DEFAULT_BUFFER_SIZE, &extra_data_length);
     if (size <= 0)
     {
+        free(buffer);
         return NULL;
     }
 
@@ -559,27 +567,42 @@ HTTP_Request *receive_http_request(int sockfd)
     // Read the body if it exists
     if (request->body_length > 0)
     {
-        request->body = (char *)malloc((request->body_length + 1) * sizeof(char)); // +1 for null-terminator
+        request->body = (char *)malloc(request->body_length + 1); // +1 for null-terminator
         if (request->body == NULL)
         {
-            fprintf(stderr, "Error al asignar memoria para body\n");
+            fprintf(stderr, "Error allocating memory for body\n");
+            free(buffer);
             free_http_request(&request);
             return NULL;
         }
 
-        // Read the body
-        if (recvall(sockfd, request->body, request->body_length) <= 0)
+        // If extra data length is greater than 0, copy it to response body
+        if (extra_data_length > 0)
         {
-            free_http_request(&request);
-            return NULL;
+            memcpy(request->body, buffer + (size - extra_data_length), extra_data_length);
         }
-        request->body[request->body_length] = '\0'; // Null-terminate the body
+
+        // Read the remaining body
+        int remaining_length = request->body_length - extra_data_length;
+        if (remaining_length > 0)
+        {
+            if (recvall(sockfd, request->body + extra_data_length, remaining_length) <= 0)
+            {
+                free(buffer);
+                free_http_request(&request);
+                return NULL;
+            }
+        }
+
+        // Null-terminate the body
+        request->body[request->body_length] = '\0';
     }
     else
     {
         request->body = NULL;
     }
 
+    free(buffer); // Now it's safe to free buffer
     return request;
 }
 
@@ -857,19 +880,28 @@ int send_http_response(int sockfd, HTTP_Response *response)
 
 HTTP_Response *receive_http_response(int sockfd)
 {
-    char buffer[DEFAULT_BUFFER_SIZE];
+    char *buffer;
     const char *content_length_str;
-    int size;
+    int size, extra_data_length;
     HTTP_Response *response;
 
+    buffer = (char *)malloc(DEFAULT_BUFFER_SIZE);
+    if (buffer == NULL)
+    {
+        fprintf(stderr, "error al asignar memoria: %s\n", strerror(errno));
+        return NULL;
+    }
+
     // Read headers first
-    size = read_until_double_end_line(sockfd, buffer, DEFAULT_BUFFER_SIZE);
+    size = read_until_double_end_line(sockfd, &buffer, DEFAULT_BUFFER_SIZE, &extra_data_length);
     if (size <= 0)
     {
+        free(buffer);
         return NULL;
     }
 
     response = deserialize_http_response_header(buffer);
+    print_buffer(buffer);
 
     // Get the Content-Length header value
     content_length_str = find_header_value(response->headers, response->header_count, "Content-Length");
@@ -882,43 +914,60 @@ HTTP_Response *receive_http_response(int sockfd)
     // Read the body if it exists
     if (response->body_length > 0)
     {
-        response->body = (char *)malloc(sizeof(char) * response->body_length + 1); // +1 for null-terminator
+        response->body = (char *)malloc(response->body_length + 1); // +1 for null-terminator
         if (response->body == NULL)
         {
-            fprintf(stderr, "Error al asignar memoria para body\n");
+            fprintf(stderr, "Error allocating memory for body\n");
+            free(buffer);
             free_http_response(&response);
             return NULL;
         }
 
-        // Read the body
-        if (recvall(sockfd, response->body, response->body_length) <= 0)
+        // If extra data length is greater than 0, copy it to response body
+        if (extra_data_length > 0)
         {
-            free_http_response(&response);
-            return NULL;
+            memcpy(response->body, buffer + (size - extra_data_length), extra_data_length);
         }
-        response->body[response->body_length] = '\0'; // Null-terminate the body
+
+        // Read the remaining body
+        int remaining_length = response->body_length - extra_data_length;
+        if (remaining_length > 0)
+        {
+            if (recvall(sockfd, response->body + extra_data_length, remaining_length) <= 0)
+            {
+                free(buffer);
+                free_http_response(&response);
+                return NULL;
+            }
+        }
+
+        // Null-terminate the body
+        response->body[response->body_length] = '\0';
     }
     else
     {
         response->body = NULL;
     }
 
+    free(buffer); // Now it's safe to free buffer
     return response;
 }
 
-int read_until_double_end_line(int sockfd, char *buffer, int length)
+int read_until_double_end_line(int sockfd, char **buffer_ptr, int length, int *extra_data_length)
 {
-    int total_bytes; // Total bytes received
+    int total_bytes = 0; // Total bytes received
     int bytes_recv;
-    char *end_of_headers;
+    char *buffer, *end_of_headers;
 
-    total_bytes = 0;
+    buffer = *buffer_ptr;
+    *extra_data_length = 0; // Initialize extra data length
+
     while (total_bytes < length)
     {
         bytes_recv = recv(sockfd, buffer + total_bytes, length - total_bytes, 0);
         if (bytes_recv == -1)
         {
-            perror("recv");
+            fprintf(stderr, "Error al intentar recibir datos: %s\n", strerror(errno));
             return -1; // Error
         }
         else if (bytes_recv == 0)
@@ -927,14 +976,16 @@ int read_until_double_end_line(int sockfd, char *buffer, int length)
             fprintf(stderr, "conexión cerrada al intentar leer\n");
             return 0;
         }
+
         total_bytes += bytes_recv;
-        buffer[total_bytes] = '\0';
+        buffer[total_bytes] = '\0'; // Null-terminate the buffer
 
         // Check if we've received two consecutive CRLF
         end_of_headers = strstr(buffer, "\r\n\r\n");
         if (end_of_headers != NULL)
         {
             // Found the end of headers
+            *extra_data_length = total_bytes - (end_of_headers - buffer + 4); // 4 for "\r\n\r\n"
             break;
         }
     }

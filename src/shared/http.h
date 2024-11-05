@@ -69,7 +69,7 @@ HTTP_Response *deserialize_http_response_header(const char *buffer);
 int send_http_response(int sockfd, HTTP_Response *response);
 HTTP_Response *receive_http_response(int sockfd);
 
-int read_until_double_end_line(int sockfd, char *buffer, int length);
+int read_until_double_end_line(int sockfd, char **buffer_ptr, int length, int *extra_data_length);
 const char *get_extension(const char *content_type);
 const char *get_content_type(const char *extension);
 
