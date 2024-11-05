@@ -1426,7 +1426,7 @@ void *handle_client_http_write(void *arg)
         }
     }
 
-    // // Cleanup
+    // Cleanup
     free_http_request(client_data->request);
     free_http_response(client_data->response);
 
