@@ -924,6 +924,7 @@ int read_until_double_end_line(int sockfd, char *buffer, int length)
         else if (bytes_recv == 0)
         {
             // Connection closed
+            fprintf(stderr, "conexión cerrada al intentar leer\n");
             return 0;
         }
         total_bytes += bytes_recv;
