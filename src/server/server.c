@@ -1262,6 +1262,7 @@ void *handle_client_http_write(void *arg)
             }
             file_content[file_stat.st_size] = '\0'; // Null-terminate the body
             client_data->response->body = file_content;
+            client_data->response->body_length = file_stat.st_size;
 
             close(file_fd);
             pthread_mutex_unlock(&lock_file);
@@ -1382,6 +1383,7 @@ void *handle_client_http_write(void *arg)
         free(size_str);
         client_data->response->headers = headers;
         client_data->response->header_count = header_count;
+        client_data->response->body_length = strlen(client_data->response->body);
 
         if (send_http_response(client_data->client_sockfd, client_data->response) < 0)
         {

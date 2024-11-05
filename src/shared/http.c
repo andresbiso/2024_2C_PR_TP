@@ -516,8 +516,7 @@ int send_http_request(int sockfd, HTTP_Request *request)
     // Send body if it exists
     if (request->body != NULL)
     {
-        int body_len = strlen(request->body);
-        if (sendall(sockfd, request->body, body_len) < 0)
+        if (sendall(sockfd, request->body, request->body_length) < 0)
         {
             perror("send body");
             return -1;
@@ -531,7 +530,7 @@ HTTP_Request *receive_http_request(int sockfd)
 {
     char buffer[DEFAULT_BUFFER_SIZE];
     const char *content_length_str;
-    int body_length, size;
+    int size;
     HTTP_Request *request;
 
     // Read headers first
@@ -545,16 +544,16 @@ HTTP_Request *receive_http_request(int sockfd)
 
     // Get the Content-Length header value
     content_length_str = find_header_value(request->headers, request->header_count, "Content-Length");
-    body_length = 0;
+    request->body_length = 0;
     if (content_length_str != NULL)
     {
-        body_length = atoi(content_length_str); // Convert Content-Length to an integer
+        request->body_length = atoi(content_length_str); // Convert Content-Length to an integer
     }
 
     // Read the body if it exists
-    if (body_length > 0)
+    if (request->body_length > 0)
     {
-        request->body = (char *)malloc((body_length + 1) * sizeof(char)); // +1 for null-terminator
+        request->body = (char *)malloc((request->body_length + 1) * sizeof(char)); // +1 for null-terminator
         if (request->body == NULL)
         {
             fprintf(stderr, "Error al asignar memoria para body\n");
@@ -563,12 +562,12 @@ HTTP_Request *receive_http_request(int sockfd)
         }
 
         // Read the body
-        if (recvall(sockfd, request->body, body_length) <= 0)
+        if (recvall(sockfd, request->body, request->body_length) <= 0)
         {
             free_http_request(request);
             return NULL;
         }
-        request->body[body_length] = '\0'; // Null-terminate the body
+        request->body[request->body_length] = '\0'; // Null-terminate the body
     }
     else
     {
@@ -839,7 +838,7 @@ int send_http_response(int sockfd, HTTP_Response *response)
     // Send body if it exists
     if (response->body != NULL)
     {
-        if (sendall(sockfd, response->body, strlen(response->body)) < 0)
+        if (sendall(sockfd, response->body, response->body_length) < 0)
         {
             perror("send body");
             return -1;
@@ -853,7 +852,7 @@ HTTP_Response *receive_http_response(int sockfd)
 {
     char buffer[DEFAULT_BUFFER_SIZE];
     const char *content_length_str;
-    int body_length, size;
+    int size;
     HTTP_Response *response;
 
     // Read headers first
@@ -867,16 +866,16 @@ HTTP_Response *receive_http_response(int sockfd)
 
     // Get the Content-Length header value
     content_length_str = find_header_value(response->headers, response->header_count, "Content-Length");
-    body_length = 0;
+    response->body_length = 0;
     if (content_length_str != NULL)
     {
-        body_length = atoi(content_length_str); // Convert Content-Length to an integer
+        response->body_length = atoi(content_length_str); // Convert Content-Length to an integer
     }
 
     // Read the body if it exists
-    if (body_length > 0)
+    if (response->body_length > 0)
     {
-        response->body = (char *)malloc((body_length + 1) * sizeof(char)); // +1 for null-terminator
+        response->body = (char *)malloc((response->body_length + 1) * sizeof(char)); // +1 for null-terminator
         if (response->body == NULL)
         {
             fprintf(stderr, "Error al asignar memoria para body\n");
@@ -885,12 +884,12 @@ HTTP_Response *receive_http_response(int sockfd)
         }
 
         // Read the body
-        if (recvall(sockfd, response->body, body_length) <= 0)
+        if (recvall(sockfd, response->body, response->body_length) <= 0)
         {
             free_http_response(response);
             return NULL;
         }
-        response->body[body_length] = '\0'; // Null-terminate the body
+        response->body[response->body_length] = '\0'; // Null-terminate the body
     }
     else
     {

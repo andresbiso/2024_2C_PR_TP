@@ -26,6 +26,7 @@ typedef struct
     Header *headers;           // Array of headers
     int header_count;          // Number of headers
     char *body;                // Request or response body
+    int body_length;           // Length of the body
 } HTTP_Request;
 
 typedef struct
@@ -41,6 +42,7 @@ typedef struct
     Header *headers;             // Array of headers
     int header_count;            // Number of headers
     char *body;                  // Response body
+    int body_length;             // Length of the body
 } HTTP_Response;
 
 Header *create_headers(int initial_count);
