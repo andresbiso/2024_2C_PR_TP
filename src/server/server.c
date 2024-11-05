@@ -1151,22 +1151,17 @@ void *handle_client_http_read(void *arg)
 
 void *handle_client_http_write(void *arg)
 {
+    char size_str[SMALL_BUFFER_SIZE];
     char full_path[DEFAULT_BUFFER_SIZE];
-    char buffer[DEFAULT_BUFFER_SIZE];
-    int file_fd, body_size;
-    ssize_t bytes_read, bytes_written;
-    ssize_t bytes_read;
+    const char *content_type;
+    int body_size, file_fd, header_index, header_count;
+    ssize_t bytes_read, total_bytes_read;
     struct stat file_stat;
-    Client_Http_Data *client_data;
-    Thread_Result *thread_result;
-    FILE *file;
-    const char *charset, *connection, *content_type, *extension;
-    int header_index, header_count;
-    Header *headers;
-    HTTP_Response *response;
     struct dirent *entry;
     DIR *dp;
-    ssize_t total_bytes_read;
+    Client_Http_Data *client_data;
+    Thread_Result *thread_result;
+    Header *headers;
 
     if (arg == NULL)
     {
@@ -1207,8 +1202,9 @@ void *handle_client_http_write(void *arg)
 
             // strrchr: searches for the last occurrence of a character in a string
             content_type = get_content_type(strrchr(full_path, '.'));
+            sprintf(size_str, "%ld", file_stat.st_size);
             add_header(&headers, &header_index, &header_count, "Content-Type", content_type);
-            add_header(&headers, &header_index, &header_count, "Content-Length", itoa(file_stat.st_size));
+            add_header(&headers, &header_index, &header_count, "Content-Length", size_str);
             add_header(&headers, &header_index, &header_count, "Connection", "close");
 
             client_data->response = create_http_response(DEFAULT_HTTP_VERSION, 200, HTTP_200_PHRASE, headers, header_count, NULL);
@@ -1216,8 +1212,8 @@ void *handle_client_http_write(void *arg)
             client_data->response->header_count = header_count;
 
             // Allocate memory for the file content
-            response->body = (char *)malloc(sizeof(char) * file_stat.st_size);
-            if (response->body == NULL)
+            client_data->response->body = (char *)malloc(sizeof(char) * file_stat.st_size);
+            if (client_data->response->body == NULL)
             {
                 close(file_fd);
                 pthread_mutex_unlock(&lock_file);
@@ -1262,9 +1258,9 @@ void *handle_client_http_write(void *arg)
             printf("Thread HTTP (%s:%d): response-line enviado: %s %d %s\n",
                    client_data->client_ipstr,
                    client_data->client_port,
-                   response->response_line.version,
-                   response->response_line.status_code,
-                   response->response_line.reason_phrase);
+                   client_data->response->response_line.version,
+                   client_data->response->response_line.status_code,
+                   client_data->response->response_line.reason_phrase);
             printf("Thread HTTP (%s:%d): headers enviados:\n",
                    client_data->client_ipstr,
                    client_data->client_port);
@@ -1290,9 +1286,9 @@ void *handle_client_http_write(void *arg)
                 printf("Thread HTTP (%s:%d): response-line enviado: %s %d %s\n",
                        client_data->client_ipstr,
                        client_data->client_port,
-                       response->response_line.version,
-                       response->response_line.status_code,
-                       response->response_line.reason_phrase);
+                       client_data->response->response_line.version,
+                       client_data->response->response_line.status_code,
+                       client_data->response->response_line.reason_phrase);
             }
         }
     }
@@ -1321,8 +1317,8 @@ void *handle_client_http_write(void *arg)
         }
 
         // Allocate memory
-        response->body = (char *)malloc(sizeof(char) * body_size + 1); // +1 for '\0'
-        if (response->body == NULL)
+        client_data->response->body = (char *)malloc(sizeof(char) * body_size + 1); // +1 for '\0'
+        if (client_data->response->body == NULL)
         {
             closedir(dp);
             pthread_mutex_unlock(&lock_file);
@@ -1334,7 +1330,7 @@ void *handle_client_http_write(void *arg)
         }
 
         // Initialize the body with an empty string
-        response->body[0] = '\0';
+        client_data->response->body[0] = '\0';
 
         // Rewind directory stream
         rewinddir(dp);
@@ -1344,16 +1340,17 @@ void *handle_client_http_write(void *arg)
         {
             if (entry->d_type == DT_REG)
             {
-                strcat(response->body, entry->d_name);
-                strcat(response->body, "\n");
+                strcat(client_data->response->body, entry->d_name);
+                strcat(client_data->response->body, "\n");
             }
         }
         closedir(dp);
         pthread_mutex_unlock(&lock_file);
 
         headers = create_headers(header_count);
+        sprintf(size_str, "%ld", strlen(client_data->response->body));
         add_header(&headers, &header_index, &header_count, "Content-Type", "text/plain");
-        add_header(&headers, &header_index, &header_count, "Content-Length", atoi(strlen(response->body)));
+        add_header(&headers, &header_index, &header_count, "Content-Length", size_str);
         client_data->response->headers = headers;
         client_data->response->header_count = header_count;
 
@@ -1368,9 +1365,9 @@ void *handle_client_http_write(void *arg)
         printf("Thread HTTP (%s:%d): response-line enviado: %s %d %s\n",
                client_data->client_ipstr,
                client_data->client_port,
-               response->response_line.version,
-               response->response_line.status_code,
-               response->response_line.reason_phrase);
+               client_data->response->response_line.version,
+               client_data->response->response_line.status_code,
+               client_data->response->response_line.reason_phrase);
         printf("Thread HTTP (%s:%d): headers enviados:\n",
                client_data->client_ipstr,
                client_data->client_port);
@@ -1394,9 +1391,9 @@ void *handle_client_http_write(void *arg)
             printf("Thread HTTP (%s:%d): response-line enviado: %s %d %s\n",
                    client_data->client_ipstr,
                    client_data->client_port,
-                   response->response_line.version,
-                   response->response_line.status_code,
-                   response->response_line.reason_phrase);
+                   client_data->response->response_line.version,
+                   client_data->response->response_line.status_code,
+                   client_data->response->response_line.reason_phrase);
         }
     }
 

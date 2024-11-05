@@ -32,6 +32,7 @@
 #define HTTP_200_PHRASE "OK"
 #define HTTP_400_PHRASE "Bad Request"
 #define HTTP_404_PHRASE "Not Found"
+#define SMALL_BUFFER_SIZE 20
 
 typedef struct
 {
