@@ -1195,7 +1195,7 @@ void *handle_client_http_write(void *arg)
         if (full_path == NULL)
         {
             fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
-            free_http_request(client_data->request);
+            free_http_request(&client_data->request);
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
@@ -1215,7 +1215,7 @@ void *handle_client_http_write(void *arg)
             {
                 close(file_fd);
                 fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
-                free_http_request(client_data->request);
+                free_http_request(&client_data->request);
                 thread_result->value = THREAD_RESULT_ERROR;
                 pthread_exit((void *)thread_result);
             }
@@ -1237,8 +1237,8 @@ void *handle_client_http_write(void *arg)
                 close(file_fd);
                 pthread_mutex_unlock(&lock_file);
                 fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
-                free_http_request(client_data->request);
-                free_http_response(client_data->response);
+                free_http_request(&client_data->request);
+                free_http_response(&client_data->response);
                 thread_result->value = THREAD_RESULT_ERROR;
                 pthread_exit((void *)thread_result);
             }
@@ -1253,8 +1253,8 @@ void *handle_client_http_write(void *arg)
                     fprintf(stderr, "server: error al leer archivo: %s\n", strerror(errno));
                     close(file_fd);
                     pthread_mutex_unlock(&lock_file);
-                    free_http_request(client_data->request);
-                    free_http_response(client_data->response);
+                    free_http_request(&client_data->request);
+                    free_http_response(&client_data->response);
                     thread_result->value = THREAD_RESULT_ERROR;
                     pthread_exit((void *)thread_result);
                 }
@@ -1270,8 +1270,8 @@ void *handle_client_http_write(void *arg)
             if (send_http_response(client_data->client_sockfd, client_data->response) < 0)
             {
                 fprintf(stderr, "server: error al enviar HTTP response\n");
-                free_http_request(client_data->request);
-                free_http_response(client_data->response);
+                free_http_request(&client_data->request);
+                free_http_response(&client_data->response);
                 thread_result->value = THREAD_RESULT_ERROR;
                 pthread_exit((void *)thread_result);
             }
@@ -1296,8 +1296,8 @@ void *handle_client_http_write(void *arg)
             if (send_http_response(client_data->client_sockfd, client_data->response) < 0)
             {
                 fprintf(stderr, "server: error al enviar HTTP response\n");
-                free_http_request(client_data->request);
-                free_http_response(client_data->response);
+                free_http_request(&client_data->request);
+                free_http_response(&client_data->response);
                 thread_result->value = THREAD_RESULT_ERROR;
                 pthread_exit((void *)thread_result);
             }
@@ -1345,8 +1345,8 @@ void *handle_client_http_write(void *arg)
             closedir(dp);
             pthread_mutex_unlock(&lock_file);
             fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
-            free_http_request(client_data->request);
-            free_http_response(client_data->response);
+            free_http_request(&client_data->request);
+            free_http_response(&client_data->response);
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
@@ -1373,7 +1373,7 @@ void *handle_client_http_write(void *arg)
         if (size_str == NULL)
         {
             fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
-            free_http_request(client_data->request);
+            free_http_request(&client_data->request);
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
@@ -1391,8 +1391,8 @@ void *handle_client_http_write(void *arg)
         if (send_http_response(client_data->client_sockfd, client_data->response) < 0)
         {
             fprintf(stderr, "server: error al enviar HTTP response\n");
-            free_http_request(client_data->request);
-            free_http_response(client_data->response);
+            free_http_request(&client_data->request);
+            free_http_response(&client_data->response);
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
@@ -1415,8 +1415,8 @@ void *handle_client_http_write(void *arg)
         if (send_http_response(client_data->client_sockfd, client_data->response) < 0)
         {
             fprintf(stderr, "server: error al enviar HTTP response\n");
-            free_http_request(client_data->request);
-            free_http_response(client_data->response);
+            free_http_request(&client_data->request);
+            free_http_response(&client_data->response);
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
@@ -1432,8 +1432,8 @@ void *handle_client_http_write(void *arg)
     }
 
     // Cleanup
-    free_http_request(client_data->request);
-    free_http_response(client_data->response);
+    free_http_request(&client_data->request);
+    free_http_response(&client_data->response);
 
     // Print completion message
     printf("Thread HTTP (%s:%d): escritura fin\n", client_data->client_ipstr, client_data->client_port);
@@ -1571,11 +1571,11 @@ void free_client_http_data(Client_Http_Data **client)
         }
         if ((*client)->request != NULL)
         {
-            free_http_request((*client)->request);
+            free_http_request(&(*client)->request);
         }
         if ((*client)->response != NULL)
         {
-            free_http_response((*client)->response);
+            free_http_response(&(*client)->response);
         }
         free(*client);
         *client = NULL;

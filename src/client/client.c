@@ -368,7 +368,7 @@ int handle_connection_http(int sockfd, const char *resource)
     if (send_http_request(sockfd, request) < 0)
     {
         fprintf(stderr, "server: error al enviar request\n");
-        free_http_request(request);
+        free_http_request(&request);
         return -1;
     }
 
@@ -384,7 +384,7 @@ int handle_connection_http(int sockfd, const char *resource)
     if (response == NULL)
     {
         fprintf(stderr, "server: error al recibir response\n");
-        free_http_request(request);
+        free_http_request(&request);
         return -1;
     }
 
@@ -427,8 +427,8 @@ int handle_connection_http(int sockfd, const char *resource)
         }
     }
 
-    free_http_request(request);
-    free_http_response(response);
+    free_http_request(&request);
+    free_http_response(&response);
 
     return 0;
 }

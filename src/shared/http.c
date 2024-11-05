@@ -347,28 +347,29 @@ HTTP_Request *create_http_request(const char *method, const char *uri, const cha
     return request;
 }
 
-void free_http_request(HTTP_Request *request)
+void free_http_request(HTTP_Request **request)
 {
-    if (request != NULL)
+    if (request != NULL && *request != NULL)
     {
-        if (request->request_line.method != NULL)
+        if ((*request)->request_line.method != NULL)
         {
-            free(request->request_line.method);
+            free((*request)->request_line.method);
         }
-        if (request->request_line.uri != NULL)
+        if ((*request)->request_line.uri != NULL)
         {
-            free(request->request_line.uri);
+            free((*request)->request_line.uri);
         }
-        if (request->request_line.version != NULL)
+        if ((*request)->request_line.version != NULL)
         {
-            free(request->request_line.version);
+            free((*request)->request_line.version);
         }
-        free_headers(&(request->headers), request->header_count);
-        if (request->body != NULL)
+        free_headers(&((*request)->headers), (*request)->header_count);
+        if ((*request)->body != NULL)
         {
-            free(request->body);
+            free((*request)->body);
         }
-        free(request);
+        free(*request);
+        *request = NULL; // Set the original pointer to NULL
     }
 }
 
@@ -466,7 +467,7 @@ HTTP_Request *deserialize_http_request_header(const char *buffer)
     {
         fprintf(stderr, "Formato inválido de HTTP request\n");
         free(temp_buffer);
-        free_http_request(request);
+        free_http_request(&request);
         return NULL;
     }
 
@@ -476,7 +477,7 @@ HTTP_Request *deserialize_http_request_header(const char *buffer)
     {
         fprintf(stderr, "Error al asignar memoria para headers_part\n");
         free(temp_buffer);
-        free_http_request(request);
+        free_http_request(&request);
         return NULL;
     }
     strncpy(headers_part, buffer, header_length);
@@ -488,7 +489,7 @@ HTTP_Request *deserialize_http_request_header(const char *buffer)
     {
         free(headers_part);
         free(temp_buffer);
-        free_http_request(request);
+        free_http_request(&request);
         return NULL;
     }
 
@@ -562,14 +563,14 @@ HTTP_Request *receive_http_request(int sockfd)
         if (request->body == NULL)
         {
             fprintf(stderr, "Error al asignar memoria para body\n");
-            free_http_request(request);
+            free_http_request(&request);
             return NULL;
         }
 
         // Read the body
         if (recvall(sockfd, request->body, request->body_length) <= 0)
         {
-            free_http_request(request);
+            free_http_request(&request);
             return NULL;
         }
         request->body[request->body_length] = '\0'; // Null-terminate the body
@@ -651,24 +652,25 @@ HTTP_Response *create_http_response(const char *version, const int status_code, 
     return response;
 }
 
-void free_http_response(HTTP_Response *response)
+void free_http_response(HTTP_Response **response)
 {
-    if (response != NULL)
+    if (response != NULL && *response != NULL)
     {
-        if (response->response_line.version != NULL)
+        if ((*response)->response_line.version != NULL)
         {
-            free(response->response_line.version);
+            free((*response)->response_line.version);
         }
-        if (response->response_line.reason_phrase != NULL)
+        if ((*response)->response_line.reason_phrase != NULL)
         {
-            free(response->response_line.reason_phrase);
+            free((*response)->response_line.reason_phrase);
         }
-        free_headers(&(response->headers), response->header_count);
-        if (response->body != NULL)
+        free_headers(&((*response)->headers), (*response)->header_count);
+        if ((*response)->body != NULL)
         {
-            free(response->body);
+            free((*response)->body);
         }
-        free(response);
+        free(*response);
+        *response = NULL; // Set the original pointer to NULL
     }
 }
 
@@ -788,7 +790,7 @@ HTTP_Response *deserialize_http_response_header(const char *buffer)
     {
         fprintf(stderr, "Formato inválido de HTTP response\n");
         free(temp_buffer);
-        free_http_response(response);
+        free_http_response(&response);
         return NULL;
     }
 
@@ -798,7 +800,7 @@ HTTP_Response *deserialize_http_response_header(const char *buffer)
     {
         fprintf(stderr, "Error al asignar memoria para headers_part\n");
         free(temp_buffer);
-        free_http_response(response);
+        free_http_response(&response);
         return NULL;
     }
     strncpy(headers_part, buffer, header_length);
@@ -810,7 +812,7 @@ HTTP_Response *deserialize_http_response_header(const char *buffer)
     {
         free(headers_part);
         free(temp_buffer);
-        free_http_response(response);
+        free_http_response(&response);
         return NULL;
     }
 
@@ -884,14 +886,14 @@ HTTP_Response *receive_http_response(int sockfd)
         if (response->body == NULL)
         {
             fprintf(stderr, "Error al asignar memoria para body\n");
-            free_http_response(response);
+            free_http_response(&response);
             return NULL;
         }
 
         // Read the body
         if (recvall(sockfd, response->body, response->body_length) <= 0)
         {
-            free_http_response(response);
+            free_http_response(&response);
             return NULL;
         }
         response->body[response->body_length] = '\0'; // Null-terminate the body
