@@ -1151,7 +1151,7 @@ void *handle_client_http_read(void *arg)
 
 void *handle_client_http_write(void *arg)
 {
-    char *full_path, *size_str;
+    char *file_content, *full_path, *size_str;
     const char *content_type;
     int body_size, file_fd, header_index, header_count;
     ssize_t bytes_read, total_bytes_read;
@@ -1231,8 +1231,8 @@ void *handle_client_http_write(void *arg)
             client_data->response->header_count = header_count;
 
             // Allocate memory for the file content
-            client_data->response->body = (char *)malloc(sizeof(char) * file_stat.st_size);
-            if (client_data->response->body == NULL)
+            file_content = (char *)malloc(sizeof(char) * file_stat.st_size + 1);
+            if (file_content == NULL)
             {
                 close(file_fd);
                 pthread_mutex_unlock(&lock_file);
@@ -1247,7 +1247,7 @@ void *handle_client_http_write(void *arg)
             total_bytes_read = 0;
             while (total_bytes_read < file_stat.st_size)
             {
-                bytes_read = read(file_fd, client_data->response->body + total_bytes_read, file_stat.st_size - total_bytes_read);
+                bytes_read = read(file_fd, file_content + total_bytes_read, file_stat.st_size - total_bytes_read);
                 if (bytes_read < 0)
                 {
                     fprintf(stderr, "server: error al leer archivo: %s\n", strerror(errno));
@@ -1260,7 +1260,8 @@ void *handle_client_http_write(void *arg)
                 }
                 total_bytes_read += bytes_read;
             }
-            client_data->response->body[file_stat.st_size] = '\0'; // Null-terminate the body
+            file_content[file_stat.st_size] = '\0'; // Null-terminate the body
+            client_data->response->body = file_content;
 
             close(file_fd);
             pthread_mutex_unlock(&lock_file);

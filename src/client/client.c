@@ -339,7 +339,7 @@ int handle_connection_http(int sockfd, const char *resource)
     // Create headers with Host
     char filename[DEFAULT_FILENAME_SIZE];
     char *formatted_resource;
-    const char *connection, *content_type;
+    const char *connection;
     int header_index, header_count;
     FILE *file;
     Header *headers;
@@ -396,7 +396,6 @@ int handle_connection_http(int sockfd, const char *resource)
         log_headers(response->headers, response->header_count);
 
         // Check for specific headers
-        content_type = find_header_value(response->headers, response->header_count, "Content-Type");
         connection = find_header_value(response->headers, response->header_count, "Connection");
         if (response->response_line.status_code == 200)
         {
@@ -407,13 +406,12 @@ int handle_connection_http(int sockfd, const char *resource)
                 // Save the body to a file
                 snprintf(filename, sizeof(filename), "%s", resource);
                 file = fopen(filename, "wb");
-                printf("body %s \n", response->body);
                 fwrite(response->body, 1, strlen(response->body), file);
                 fclose(file);
             }
             else
             {
-                printf("client: Body: %s\n", response->body);
+                printf("client: body: %s\n", response->body);
             }
         }
 

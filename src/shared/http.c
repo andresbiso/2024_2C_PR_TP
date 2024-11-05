@@ -839,8 +839,7 @@ int send_http_response(int sockfd, HTTP_Response *response)
     // Send body if it exists
     if (response->body != NULL)
     {
-        int body_len = strlen(response->body);
-        if (sendall(sockfd, response->body, body_len) < 0)
+        if (sendall(sockfd, response->body, strlen(response->body)) < 0)
         {
             perror("send body");
             return -1;
