@@ -1201,6 +1201,8 @@ void *handle_client_http_write(void *arg)
         snprintf(full_path, strlen(RESOURCES_FOLDER) + strlen(client_data->request->request_line.uri) + 1, "%s%s", RESOURCES_FOLDER, client_data->request->request_line.uri);
 
         // strrchr: searches for the last occurrence of a character in a string
+        // You don't need to free the result of strrchr.
+        // The strrchr function returns a pointer to a location within the original string
         if ((last_occurrence = strrchr(full_path, '.')) == NULL)
         {
             fprintf(stderr, "server: error al buscar extension de archivo %s\n", full_path);
@@ -1230,12 +1232,12 @@ void *handle_client_http_write(void *arg)
             thread_result->value = THREAD_RESULT_SUCCESS;
             pthread_exit((void *)thread_result);
         }
+
         content_type = get_content_type(last_occurrence);
-        puts("hola:)");
-        free(last_occurrence);
         pthread_mutex_lock(&lock_file);
         file_fd = open(full_path, O_RDONLY);
         free(full_path);
+
         if (file_fd > 0 && fstat(file_fd, &file_stat) == 0)
         {
             // Generate response for existing file
@@ -1271,7 +1273,6 @@ void *handle_client_http_write(void *arg)
                 thread_result->value = THREAD_RESULT_ERROR;
                 pthread_exit((void *)thread_result);
             }
-
             // Read the file content into response->body
             total_bytes_read = 0;
             while (total_bytes_read < file_stat.st_size)
@@ -1319,7 +1320,6 @@ void *handle_client_http_write(void *arg)
         {
             // File not found or error getting file stats
             // Generate response for file not found
-            close(file_fd);
             pthread_mutex_unlock(&lock_file);
             client_data->response = create_http_response(DEFAULT_HTTP_VERSION, 404, HTTP_404_PHRASE, NULL, 0, NULL);
             if (send_http_response(client_data->client_sockfd, client_data->response) < 0)

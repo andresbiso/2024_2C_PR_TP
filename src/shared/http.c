@@ -622,6 +622,7 @@ HTTP_Response *create_http_response(const char *version, const int status_code, 
         fprintf(stderr, "Error al asignar memoria: %s\n", strerror(errno));
         return NULL;
     }
+    memset(response, 0, sizeof(HTTP_Response));
 
     response->response_line.version = (char *)malloc(sizeof(char) * strlen(version) + 1);
     if (response->response_line.version == NULL)
@@ -660,7 +661,7 @@ HTTP_Response *create_http_response(const char *version, const int status_code, 
 
     if (body != NULL)
     {
-        response->body = (char *)malloc(strlen(body) + 1);
+        response->body = (char *)malloc(sizeof(char) * strlen(body) + 1);
         if (response->body == NULL)
         {
             fprintf(stderr, "Error al asignar memoria para body\n");
