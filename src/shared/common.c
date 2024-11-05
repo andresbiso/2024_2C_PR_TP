@@ -454,7 +454,7 @@ void print_buffer(const char *buffer)
         }
         else if (*buffer == '\0')
         {
-            printf("40");
+            printf("00");
         }
         else
         {

@@ -700,12 +700,11 @@ void free_http_response(HTTP_Response **response)
 
 int serialize_http_response(HTTP_Response *response, char **buffer)
 {
-    const char *line_ending;
-    const char *space;
-    char *headers_buffer;
+    const char *line_ending, *space;
+    char *headers_buffer, *ptr;
     int size_buffer, size_headers_buffer;
 
-    line_ending = "\r\n\0";
+    line_ending = "\r\n";
     space = " ";
 
     size_headers_buffer = serialize_headers(response->headers, response->header_count, &headers_buffer);
@@ -715,7 +714,8 @@ int serialize_http_response(HTTP_Response *response, char **buffer)
         return -1;
     }
 
-    size_buffer = strlen(response->response_line.version) + sizeof(response->response_line.status_code) + strlen(response->response_line.reason_phrase) + strlen(space) * 2 + strlen(line_ending);
+    size_buffer = strlen(response->response_line.version) + sizeof(response->response_line.status_code) +
+                  strlen(response->response_line.reason_phrase) + strlen(space) * 2 + strlen(line_ending);
     size_buffer += size_headers_buffer;
     size_buffer += strlen(line_ending); // For \r\n after headers
 
@@ -724,21 +724,26 @@ int serialize_http_response(HTTP_Response *response, char **buffer)
         size_buffer += response->body_length;
     }
 
-    *buffer = (char *)malloc(sizeof(char) * size_buffer);
+    *buffer = (char *)malloc(size_buffer);
     if (*buffer == NULL)
     {
         fprintf(stderr, "Error al asignar memoria\n");
         return -1;
     }
 
-    sprintf(*buffer, "%s %d %s%s", response->response_line.version, response->response_line.status_code, response->response_line.reason_phrase, line_ending);
-    strcat(*buffer, headers_buffer);
-    strcat(*buffer, line_ending);
+    ptr = *buffer;
+    ptr += sprintf(ptr, "%s %d %s%s", response->response_line.version, response->response_line.status_code, response->response_line.reason_phrase, line_ending);
+    memcpy(ptr, headers_buffer, size_headers_buffer);
+    ptr += size_headers_buffer;
+    memcpy(ptr, line_ending, strlen(line_ending));
+    ptr += strlen(line_ending);
 
     if (response->body != NULL)
     {
-        strcat(*buffer, response->body);
+        memcpy(ptr, response->body, response->body_length);
     }
+
+    free(headers_buffer);
 
     return size_buffer;
 }
