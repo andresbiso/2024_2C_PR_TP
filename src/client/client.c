@@ -362,13 +362,11 @@ int handle_connection_http(int sockfd, const char *resource)
     puts("client: headers enviados:");
     log_headers(request->headers, request->header_count);
 
-    free_http_request(request);
-
     // Receive the HTTP response
     response = receive_http_response(sockfd);
     if (response == NULL)
     {
-        close(sockfd);
+        free_http_request(request);
         return -1;
     }
 
@@ -385,25 +383,31 @@ int handle_connection_http(int sockfd, const char *resource)
     printf("client: Charset: %s\n", charset);
     printf("client: Connection: %s\n", connection);
 
-    extension = get_extension(content_type);
-
-    if (extension)
+    if (request->request_line.uri[0] == '/' && strlen(request->request_line.uri) > 1)
     {
-        printf("client: Body recibido, guardando archivo\n");
+        extension = get_extension(content_type);
 
-        // Save the body to a file
-        snprintf(filename, sizeof(filename), "assets%s", extension);
-        file = fopen(filename, "wb");
-        fwrite(response->body, sizeof(char), strlen(response->body), file);
-        fclose(file);
+        if (extension)
+        {
+            printf("client: body recibido, guardando archivo...\n");
+
+            // Save the body to a file
+            snprintf(filename, sizeof(filename), "file%s", extension);
+            file = fopen(filename, "wb");
+            fwrite(response->body, 1, strlen(response->body), file);
+            fclose(file);
+        }
+        else
+        {
+            printf("client: content type no fue encontrado.\n");
+        }
     }
     else
     {
-        printf("client: content type no fue encontrado.\n");
-        free_http_response(response);
-        return -1;
+        printf("client: Body: %s\n", response->body);
     }
 
+    free_http_request(request);
     free_http_response(response);
 
     // Check for "Connection: close" header to close the socket

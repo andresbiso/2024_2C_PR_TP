@@ -51,8 +51,14 @@ void free_header(Header *header)
 {
     if (header != NULL)
     {
-        free(header->key);
-        free(header->value);
+        if (header->key != NULL)
+        {
+            free(header->key);
+        }
+        if (header->value != NULL)
+        {
+            free(header->value);
+        }
     }
 }
 
