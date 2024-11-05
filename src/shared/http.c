@@ -38,12 +38,17 @@ Header *create_headers(int initial_count)
 
 void free_headers(Header **headers, int header_count)
 {
-    for (int i = 0; i < header_count; i++)
+    int i;
+    if (headers == NULL || *headers == NULL)
     {
-        free_header(headers[i]);
-        headers[i] = NULL; // Set each element to NULL
+        return; // Nothing to free
     }
-    free(*headers);
+
+    for (i = 0; i < header_count; i++)
+    {
+        free_header(&((*headers)[i]));
+    }
+    free(*headers);  // Free the array of headers
     *headers = NULL; // Set the original pointer to NULL
 }
 
@@ -875,7 +880,7 @@ HTTP_Response *receive_http_response(int sockfd)
     // Read the body if it exists
     if (response->body_length > 0)
     {
-        response->body = (char *)malloc((response->body_length + 1) * sizeof(char)); // +1 for null-terminator
+        response->body = (char *)malloc(sizeof(char) * response->body_length + 1); // +1 for null-terminator
         if (response->body == NULL)
         {
             fprintf(stderr, "Error al asignar memoria para body\n");

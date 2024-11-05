@@ -1210,7 +1210,7 @@ void *handle_client_http_write(void *arg)
         if (file_fd > 0 && fstat(file_fd, &file_stat) == 0)
         {
             // Generate response for existing file
-            size_str = (char *)malloc(sizeof(char) * file_stat.st_size);
+            size_str = (char *)malloc(sizeof(int));
             if (size_str == NULL)
             {
                 close(file_fd);
@@ -1328,8 +1328,10 @@ void *handle_client_http_write(void *arg)
 
         body_size = 0;
         // First pass: Calculate total length
-        while ((entry = readdir(dp)))
+        // While not the end of the directory
+        while ((entry = readdir(dp)) != NULL)
         {
+            // Regular files
             if (entry->d_type == DT_REG)
             {
                 body_size += strlen(entry->d_name) + 1; // +1 for '\n'
@@ -1367,7 +1369,7 @@ void *handle_client_http_write(void *arg)
         closedir(dp);
         pthread_mutex_unlock(&lock_file);
 
-        size_str = (char *)malloc(sizeof(char) * strlen(client_data->response->body));
+        size_str = (char *)malloc(sizeof(int));
         if (size_str == NULL)
         {
             fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));

@@ -76,7 +76,7 @@ ssize_t recvall_with_flags(int sockfd, void *buf, size_t len, int flags)
         received = recv(sockfd, buffer + total_received, bytes_left, flags);
         if (received < 0)
         {
-            fprintf(stderr, "Error receiving data: %s\n", strerror(errno));
+            fprintf(stderr, "Error al recibir datos: %s\n", strerror(errno));
             return received;
         }
         else if (received == 0)
