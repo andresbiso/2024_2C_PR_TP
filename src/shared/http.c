@@ -153,7 +153,7 @@ int serialize_headers(Header *headers, int header_count, char **buffer)
         size += strlen(headers[i].key) + strlen(headers[i].value) + strlen(key_value_separator) + strlen(line_ending);
     }
 
-    *buffer = (char *)malloc((size + 1) * sizeof(char)); // +1 for the null terminator
+    *buffer = (char *)malloc(sizeof(char) * size + 1); // +1 for the null terminator
     if (*buffer == NULL)
     {
         fprintf(stderr, "Error al asignar memoria para buffer\n");
@@ -171,7 +171,7 @@ int serialize_headers(Header *headers, int header_count, char **buffer)
         strcat(*buffer, headers[i].value);
         strcat(*buffer, line_ending);
     }
-
+    (*buffer)[size] = '\0';
     return size; // Return the size of the serialized headers
 }
 
@@ -693,7 +693,7 @@ int serialize_http_response_header(HTTP_Response *response, char **buffer)
     size_buffer += size_headers_buffer;
     size_buffer += strlen(line_ending); // For \r\n after headers
 
-    *buffer = (char *)malloc(size_buffer * sizeof(char));
+    *buffer = (char *)malloc(sizeof(char) * size_buffer);
     if (*buffer == NULL)
     {
         fprintf(stderr, "Error al asignar memoria\n");

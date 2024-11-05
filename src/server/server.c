@@ -1383,6 +1383,7 @@ void *handle_client_http_write(void *arg)
         sprintf(size_str, "%ld", strlen(client_data->response->body));
         add_header(&headers, &header_index, &header_count, "Content-Length", size_str);
         free(size_str);
+        add_header(&headers, &header_index, &header_count, "Connection", "close");
         client_data->response->headers = headers;
         client_data->response->header_count = header_count;
         client_data->response->body_length = body_size;
