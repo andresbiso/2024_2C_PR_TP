@@ -32,6 +32,8 @@
 #define HTTP_200_PHRASE "OK"
 #define HTTP_400_PHRASE "Bad Request"
 #define HTTP_404_PHRASE "Not Found"
+#define DEFAULT_THREAD_COUNT 10
+#define DEFAULT_QUEUE_SIZE 20
 
 typedef struct
 {
@@ -63,7 +65,7 @@ void *handle_client_heartbeat_write(void *arg);
 void *handle_client_http_read(void *arg);
 void *handle_client_http_write(void *arg);
 int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http);
-int parse_arguments(int argc, char *argv[], char *local_ip, char *local_port_tcp, char *local_port_udp, char *local_port_tcp_http);
+int parse_arguments(int argc, char *argv[], char *local_ip, char *local_port_tcp, char *local_port_udp, char *local_port_tcp_http, int *thread_count, int *queue_size);
 int setup_server_tcp(char *local_ip, char *local_port);
 int setup_server_udp(char *local_ip, char *local_port);
 void show_help(void);

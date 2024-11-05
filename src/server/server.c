@@ -24,6 +24,7 @@
 // Shared headers
 #include "../shared/common.h"
 #include "../shared/http.h"
+#include "../shared/threadpool.h"
 
 // Project header
 #include "server.h"
@@ -31,6 +32,7 @@
 volatile sig_atomic_t stop;
 pthread_mutex_t lock;
 pthread_mutex_t lock_file;
+threadpool_t *pool;
 
 int main(int argc, char *argv[])
 {
@@ -38,6 +40,10 @@ int main(int argc, char *argv[])
         local_port_tcp_http[PORTSTRLEN], local_port_udp[PORTSTRLEN];
     int ret_val;
     int sockfd_tcp, sockfd_tcp_http, sockfd_udp; // listen on these sockfd
+    int thread_count, queue_size;
+
+    thread_count = DEFAULT_THREAD_COUNT;
+    queue_size = DEFAULT_QUEUE_SIZE;
 
     strcpy(local_ip, LOCAL_IP);
     strcpy(local_port_tcp, LOCAL_PORT_TCP);
@@ -56,7 +62,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    ret_val = parse_arguments(argc, argv, local_ip, local_port_tcp, local_port_udp, local_port_tcp_http);
+    ret_val = parse_arguments(argc, argv, local_ip, local_port_tcp, local_port_udp, local_port_tcp_http, &thread_count, &queue_size);
     if (ret_val > 0)
     {
         return EXIT_SUCCESS;
@@ -82,11 +88,29 @@ int main(int argc, char *argv[])
     }
     printf("server: TCP %s:%d: exclusivo para HTTP\n", LOCAL_IP_EXPOSED, atoi(local_port_tcp_http));
     setup_signals();
+
+    // threadpool create
+    pool = threadpool_create(thread_count, queue_size, 0);
+    if (pool == NULL)
+    {
+        perror("server: error al intentar crear threadpool\n");
+        return EXIT_FAILURE;
+    }
+    printf("server: threadPool comienzo. threads: %d queue size: %d\n", thread_count, queue_size);
+
     ret_val = handle_connections(sockfd_tcp, sockfd_udp, sockfd_tcp_http);
     if (ret_val < 0)
     {
         return EXIT_FAILURE;
     }
+
+    // threadpool destroy
+    if (threadpool_destroy(pool, 0) != 0)
+    {
+        perror("server: error al intentar destruir threadpool\n");
+        return EXIT_FAILURE;
+    }
+    printf("server: threadPool finalizado\n");
 
     close(sockfd_tcp);
     close(sockfd_udp);
@@ -97,7 +121,7 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-int parse_arguments(int argc, char *argv[], char *local_ip, char *local_port_tcp, char *local_port_udp, char *local_port_tcp_http)
+int parse_arguments(int argc, char *argv[], char *local_ip, char *local_port_tcp, char *local_port_udp, char *local_port_tcp_http, int *thread_count, int *queue_size)
 {
     int ret_val;
 
@@ -138,6 +162,16 @@ int parse_arguments(int argc, char *argv[], char *local_ip, char *local_port_tcp
                 strcpy(local_port_tcp_http, argv[i + 1]);
                 i++; // Skip the next argument since it's the port number
             }
+            else if (strcmp(argv[i], "--threads") == 0 && i + 1 < argc)
+            {
+                *thread_count = atoi(argv[i + 1]);
+                i++; // Skip the next argument since it's the port number
+            }
+            else if (strcmp(argv[i], "--queue") == 0 && i + 1 < argc)
+            {
+                *queue_size = atoi(argv[i + 1]);
+                i++; // Skip the next argument since it's the port number
+            }
             else
             {
                 printf("server: opción o argumento no soportado: %s\n", argv[i]);
@@ -160,6 +194,8 @@ void show_help()
     puts("  --local-port-tcp <puerto>    Especificar el número de puerto tcp local");
     puts("  --local-port-udp <puerto>    Especificar el número de puerto udp local");
     puts("  --local-port-tcp-http <puerto>    Especificar el número de puerto tcp http local");
+    puts("  --threads <número>    Especificar la cantidad de threads del threadpool");
+    puts("  --queue <número>    Especificar el tamaño de la queue del threadpool");
 }
 
 void show_version()
