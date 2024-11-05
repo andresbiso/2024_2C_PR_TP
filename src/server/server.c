@@ -1363,9 +1363,10 @@ void *handle_client_http_write(void *arg)
             if (entry->d_type == DT_REG)
             {
                 strcat(client_data->response->body, entry->d_name);
-                strcat(client_data->response->body, "\n");
+                strcat(client_data->response->body, "\r\n");
             }
         }
+        client_data->response->body[body_size] = '\0';
         closedir(dp);
         pthread_mutex_unlock(&lock_file);
 

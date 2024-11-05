@@ -452,6 +452,10 @@ void print_buffer(const char *buffer)
         {
             printf("\\n");
         }
+        else if (*buffer == '\0')
+        {
+            printf("40");
+        }
         else
         {
             putchar(*buffer);

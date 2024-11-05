@@ -75,7 +75,7 @@ int add_header(Header **headers, int *header_index, int *header_count, const cha
         *headers = (Header *)realloc(*headers, (*header_count) * sizeof(Header));
         if (*headers == NULL)
         {
-            fprintf(stderr, "Error reasignando memoria\n");
+            fprintf(stderr, "server: error al reasignar memoria: %s\n", strerror(errno));
             return -1;
         }
     }
@@ -125,7 +125,7 @@ int remove_header(Header **headers, int *header_index, int *header_count, const 
                 temp = (Header *)realloc(*headers, (*header_count) * sizeof(Header));
                 if (temp == NULL)
                 {
-                    fprintf(stderr, "Error reasignando memoria\n");
+                    fprintf(stderr, "server: error al reasignar memoria: %s\n", strerror(errno));
                     return -1;
                 }
                 *headers = temp;
@@ -674,14 +674,14 @@ void free_http_response(HTTP_Response **response)
     }
 }
 
-int serialize_http_response_header(HTTP_Response *response, char **buffer)
+int serialize_http_response(HTTP_Response *response, char **buffer)
 {
     const char *line_ending;
     const char *space;
     char *headers_buffer;
     int size_buffer, size_headers_buffer;
 
-    line_ending = "\r\n";
+    line_ending = "\r\n\0";
     space = " ";
 
     size_headers_buffer = serialize_headers(response->headers, response->header_count, &headers_buffer);
@@ -695,6 +695,11 @@ int serialize_http_response_header(HTTP_Response *response, char **buffer)
     size_buffer += size_headers_buffer;
     size_buffer += strlen(line_ending); // For \r\n after headers
 
+    if (response->body != NULL)
+    {
+        size_buffer += response->body_length;
+    }
+
     *buffer = (char *)malloc(sizeof(char) * size_buffer);
     if (*buffer == NULL)
     {
@@ -706,6 +711,11 @@ int serialize_http_response_header(HTTP_Response *response, char **buffer)
     strcat(*buffer, headers_buffer);
     strcat(*buffer, line_ending);
 
+    if (response->body != NULL)
+    {
+        strcat(*buffer, response->body);
+    }
+    print_buffer(*buffer);
     return size_buffer;
 }
 
@@ -827,31 +837,21 @@ int send_http_response(int sockfd, HTTP_Response *response)
     int size;
 
     // Serialize response line and headers
-    size = serialize_http_response_header(response, &buffer);
+    size = serialize_http_response(response, &buffer);
     if (size < 0)
     {
         return -1;
     }
 
-    // Send request line and headers
+    // Send the complete response (headers + body)
     if (sendall(sockfd, buffer, size) < 0)
     {
-        perror("send headers");
+        perror("send response");
         free(buffer);
         return -1;
     }
+
     free(buffer);
-
-    // Send body if it exists
-    if (response->body != NULL)
-    {
-        if (sendall(sockfd, response->body, response->body_length) < 0)
-        {
-            perror("send body");
-            return -1;
-        }
-    }
-
     return 0;
 }
 
