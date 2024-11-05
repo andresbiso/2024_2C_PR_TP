@@ -338,12 +338,23 @@ int handle_connection_http(int sockfd, const char *resource)
 {
     // Create headers with Host
     char filename[DEFAULT_FILENAME_SIZE];
-    FILE *file;
-    const char *charset, *connection, *content_type, *extension;
+    char *formatted_resource;
+    const char *connection, *content_length, *content_type, *extension;
     int header_index, header_count;
+    FILE *file;
     Header *headers;
     HTTP_Request *request;
     HTTP_Response *response;
+
+    formatted_resource = (char *)malloc(strlen(resource) + 2); // +1 for '/' and +1 for '\0'
+    if (formatted_resource == NULL)
+    {
+        fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
+        return -1;
+    }
+
+    formatted_resource[0] = '/';
+    strcpy(formatted_resource + 1, resource);
 
     header_index = 0;
     header_count = INITIAL_HEADER_COUNT;
@@ -351,9 +362,15 @@ int handle_connection_http(int sockfd, const char *resource)
     add_header(&headers, &header_index, &header_count, "Host", DEFAULT_HOST);
 
     // Create the HTTP request with Host header
-    request = create_http_request(DEFAULT_HTTP_METHOD, resource, DEFAULT_HTTP_VERSION, headers, header_count, NULL);
+    request = create_http_request(DEFAULT_HTTP_METHOD, formatted_resource, DEFAULT_HTTP_VERSION, headers, header_count, NULL);
+    free(formatted_resource);
 
-    send_http_request(sockfd, request);
+    if (send_http_request(sockfd, request) < 0)
+    {
+        fprintf(stderr, "server: error al enviar request\n");
+        free_http_request(request);
+        return -1;
+    }
 
     printf("client: request-line enviado: %s %s %s\n",
            request->request_line.method,
@@ -366,6 +383,7 @@ int handle_connection_http(int sockfd, const char *resource)
     response = receive_http_response(sockfd);
     if (response == NULL)
     {
+        fprintf(stderr, "server: error al recibir response\n");
         free_http_request(request);
         return -1;
     }
@@ -376,35 +394,38 @@ int handle_connection_http(int sockfd, const char *resource)
 
     // Check for specific headers
     content_type = find_header_value(response->headers, response->header_count, "Content-Type");
-    charset = find_header_value(response->headers, response->header_count, "charset");
+    content_length = find_header_value(response->headers, response->header_count, "Content-Length");
     connection = find_header_value(response->headers, response->header_count, "Connection");
 
     printf("client: Content-Type: %s\n", content_type);
-    printf("client: Charset: %s\n", charset);
+    printf("client: Content-Length: %s\n", content_length);
     printf("client: Connection: %s\n", connection);
 
-    if (request->request_line.uri[0] == '/' && strlen(request->request_line.uri) > 1)
+    if (response->response_line.status_code == 200)
     {
-        extension = get_extension(content_type);
-
-        if (extension)
+        if (request->request_line.uri[0] == '/' && strlen(request->request_line.uri) > 1)
         {
-            printf("client: body recibido, guardando archivo...\n");
+            extension = get_extension(content_type);
 
-            // Save the body to a file
-            snprintf(filename, sizeof(filename), "file%s", extension);
-            file = fopen(filename, "wb");
-            fwrite(response->body, 1, strlen(response->body), file);
-            fclose(file);
+            if (extension)
+            {
+                printf("client: body recibido, guardando archivo...\n");
+
+                // Save the body to a file
+                snprintf(filename, sizeof(filename), "%s%s", resource, extension);
+                file = fopen(filename, "wb");
+                fwrite(response->body, 1, strlen(response->body), file);
+                fclose(file);
+            }
+            else
+            {
+                printf("client: content type no fue encontrado.\n");
+            }
         }
         else
         {
-            printf("client: content type no fue encontrado.\n");
+            printf("client: Body: %s\n", response->body);
         }
-    }
-    else
-    {
-        printf("client: Body: %s\n", response->body);
     }
 
     free_http_request(request);
