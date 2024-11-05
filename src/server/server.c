@@ -1203,10 +1203,10 @@ void *handle_client_http_write(void *arg)
 
         // strrchr: searches for the last occurrence of a character in a string
         content_type = get_content_type(strrchr(full_path, '.'));
-        free(full_path);
 
         pthread_mutex_lock(&lock_file);
         file_fd = open(full_path, O_RDONLY);
+        free(full_path);
         if (file_fd > 0 && fstat(file_fd, &file_stat) == 0)
         {
             // Generate response for existing file

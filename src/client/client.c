@@ -339,7 +339,7 @@ int handle_connection_http(int sockfd, const char *resource)
     // Create headers with Host
     char filename[DEFAULT_FILENAME_SIZE];
     char *formatted_resource;
-    const char *connection, *content_type, *extension;
+    const char *connection, *content_type;
     int header_index, header_count;
     FILE *file;
     Header *headers;
@@ -402,22 +402,14 @@ int handle_connection_http(int sockfd, const char *resource)
         {
             if (request->request_line.uri[0] == '/' && strlen(request->request_line.uri) > 1)
             {
-                extension = get_extension(content_type);
+                printf("client: body recibido, guardando archivo...\n");
 
-                if (extension)
-                {
-                    printf("client: body recibido, guardando archivo...\n");
-
-                    // Save the body to a file
-                    snprintf(filename, sizeof(filename), "%s%s", resource, extension);
-                    file = fopen(filename, "wb");
-                    fwrite(response->body, 1, strlen(response->body), file);
-                    fclose(file);
-                }
-                else
-                {
-                    printf("client: content type no fue encontrado.\n");
-                }
+                // Save the body to a file
+                snprintf(filename, sizeof(filename), "%s", resource);
+                file = fopen(filename, "wb");
+                printf("body %s \n", response->body);
+                fwrite(response->body, 1, strlen(response->body), file);
+                fclose(file);
             }
             else
             {

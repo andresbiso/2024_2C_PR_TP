@@ -21,7 +21,7 @@
 #define LOCAL_PORT_TCP_HTTP "3030" // The port clients will be connecting for TCP HTTP
 #define PORTSTRLEN 6               // Enough to hold "65535" + '\0'
 #define VERSION "0.0.1"
-#define RESOURCES_FOLDER "../assets"
+#define RESOURCES_FOLDER "assets"
 #define MAX_CLIENTS 1024
 #define THREAD_RESULT_EMPTY_REQUEST -3
 #define THREAD_RESULT_EMPTY_PACKET -2
