@@ -595,7 +595,7 @@ HTTP_Response *create_http_response(const char *version, const int status_code, 
         return NULL;
     }
 
-    response->response_line.version = (char *)malloc(strlen(version) + 1);
+    response->response_line.version = (char *)malloc(sizeof(char) * strlen(version) + 1);
     if (response->response_line.version == NULL)
     {
         fprintf(stderr, "Error al asignar memoria para version\n");
@@ -606,7 +606,7 @@ HTTP_Response *create_http_response(const char *version, const int status_code, 
 
     response->response_line.status_code = status_code;
 
-    response->response_line.reason_phrase = (char *)malloc(strlen(reason_phrase) + 1);
+    response->response_line.reason_phrase = (char *)malloc(sizeof(char) * strlen(reason_phrase) + 1);
     if (response->response_line.reason_phrase == NULL)
     {
         fprintf(stderr, "Error al asignar memoria para reason_phrase\n");
@@ -706,7 +706,7 @@ int serialize_http_response_header(HTTP_Response *response, char **buffer)
 HTTP_Response *deserialize_http_response_header(const char *buffer)
 {
     char reason_phrase[REASON_PHRASE_SIZE], version[VERSION_SIZE];
-    char *line, *temp_buffer;
+    char *line, *temp_buffer, *reason_start;
     char *header_end_ptr, *headers_part;
     const char *line_ending;
     int header_length, status_code;
@@ -738,7 +738,31 @@ HTTP_Response *deserialize_http_response_header(const char *buffer)
         free(response);
         return NULL;
     }
-    if (sscanf(line, "%s %d %s", version, &status_code, reason_phrase) != 3)
+    if (sscanf(line, "%s %d", version, &status_code) != 2)
+    {
+        fprintf(stderr, "Error al parsear response line\n");
+        free(temp_buffer);
+        free(response);
+        return NULL;
+    }
+
+    reason_start = strchr(line, ' ');
+    if (reason_start != NULL)
+    {
+        reason_start = strchr(reason_start + 1, ' ');
+        if (reason_start != NULL)
+        {
+            strcpy(reason_phrase, reason_start + 1);
+        }
+        else
+        {
+            fprintf(stderr, "Error al parsear reason phrase\n");
+            free(temp_buffer);
+            free(response);
+            return NULL;
+        }
+    }
+    else
     {
         fprintf(stderr, "Error al parsear response line\n");
         free(temp_buffer);

@@ -1191,7 +1191,7 @@ void *handle_client_http_write(void *arg)
     {
         // Generate response for a particular file
         // Allocate memory for the file content
-        full_path = (char *)malloc(sizeof(char) * (strlen(RESOURCES_FOLDER) + strlen(client_data->request->request_line.uri)));
+        full_path = (char *)malloc(sizeof(char) * (strlen(RESOURCES_FOLDER) + strlen(client_data->request->request_line.uri) + 1));
         if (full_path == NULL)
         {
             fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
@@ -1199,7 +1199,7 @@ void *handle_client_http_write(void *arg)
             thread_result->value = THREAD_RESULT_ERROR;
             pthread_exit((void *)thread_result);
         }
-        snprintf(full_path, sizeof(full_path), "%s%s", RESOURCES_FOLDER, client_data->request->request_line.uri);
+        snprintf(full_path, strlen(RESOURCES_FOLDER) + strlen(client_data->request->request_line.uri) + 1, "%s%s", RESOURCES_FOLDER, client_data->request->request_line.uri);
 
         // strrchr: searches for the last occurrence of a character in a string
         content_type = get_content_type(strrchr(full_path, '.'));

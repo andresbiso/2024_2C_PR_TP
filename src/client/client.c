@@ -339,7 +339,7 @@ int handle_connection_http(int sockfd, const char *resource)
     // Create headers with Host
     char filename[DEFAULT_FILENAME_SIZE];
     char *formatted_resource;
-    const char *connection, *content_length, *content_type, *extension;
+    const char *connection, *content_type, *extension;
     int header_index, header_count;
     FILE *file;
     Header *headers;
@@ -389,57 +389,55 @@ int handle_connection_http(int sockfd, const char *resource)
     }
 
     printf("client: Response Line: %s %d %s\n", response->response_line.version, response->response_line.status_code, response->response_line.reason_phrase);
-    printf("client: Headers:\n");
-    log_headers(response->headers, response->header_count);
 
-    // Check for specific headers
-    content_type = find_header_value(response->headers, response->header_count, "Content-Type");
-    content_length = find_header_value(response->headers, response->header_count, "Content-Length");
-    connection = find_header_value(response->headers, response->header_count, "Connection");
-
-    printf("client: Content-Type: %s\n", content_type);
-    printf("client: Content-Length: %s\n", content_length);
-    printf("client: Connection: %s\n", connection);
-
-    if (response->response_line.status_code == 200)
+    if (response->header_count > 0)
     {
-        if (request->request_line.uri[0] == '/' && strlen(request->request_line.uri) > 1)
+        printf("client: Headers:\n");
+        log_headers(response->headers, response->header_count);
+
+        // Check for specific headers
+        content_type = find_header_value(response->headers, response->header_count, "Content-Type");
+        connection = find_header_value(response->headers, response->header_count, "Connection");
+        if (response->response_line.status_code == 200)
         {
-            extension = get_extension(content_type);
-
-            if (extension)
+            if (request->request_line.uri[0] == '/' && strlen(request->request_line.uri) > 1)
             {
-                printf("client: body recibido, guardando archivo...\n");
+                extension = get_extension(content_type);
 
-                // Save the body to a file
-                snprintf(filename, sizeof(filename), "%s%s", resource, extension);
-                file = fopen(filename, "wb");
-                fwrite(response->body, 1, strlen(response->body), file);
-                fclose(file);
+                if (extension)
+                {
+                    printf("client: body recibido, guardando archivo...\n");
+
+                    // Save the body to a file
+                    snprintf(filename, sizeof(filename), "%s%s", resource, extension);
+                    file = fopen(filename, "wb");
+                    fwrite(response->body, 1, strlen(response->body), file);
+                    fclose(file);
+                }
+                else
+                {
+                    printf("client: content type no fue encontrado.\n");
+                }
             }
             else
             {
-                printf("client: content type no fue encontrado.\n");
+                printf("client: Body: %s\n", response->body);
             }
+        }
+
+        // Check for "Connection: close" header to close the socket
+        if (connection != NULL && strcmp(connection, "close") == 0)
+        {
+            printf("client: recibido \"Connection: close\". Finalizando...\n");
         }
         else
         {
-            printf("client: Body: %s\n", response->body);
+            printf("client: manteniendo la conexión abierta.\n");
         }
     }
 
     free_http_request(request);
     free_http_response(response);
-
-    // Check for "Connection: close" header to close the socket
-    if (connection && strcmp(connection, "close") == 0)
-    {
-        printf("client: recibido \"Connection: close\". Finalizando...\n");
-    }
-    else
-    {
-        printf("client: manteniendo la conexión abierta.\n");
-    }
 
     return 0;
 }
