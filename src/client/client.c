@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 
     strcpy(external_ip, "");
     strcpy(external_port, "");
-    strcpy(resource, DEFAULT_RESOURCE);
+    strcpy(resource, "");
 
     mode = DEFAULT_MODE;
 
@@ -145,7 +145,10 @@ int parse_arguments(int argc, char *argv[], char *external_ip, char *external_po
             }
             else if (strcmp(argv[i], "--resource") == 0 && i + 1 < argc)
             {
-                strcpy(resource, argv[i + 1]);
+                if (strcmp(argv[i + 1], "/") != 0)
+                {
+                    strcpy(resource, argv[i + 1]);
+                }
                 i++; // Skip the next argument since it's the port number
             }
             else

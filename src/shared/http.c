@@ -738,7 +738,7 @@ int serialize_http_response(HTTP_Response *response, char **buffer)
     {
         strcat(*buffer, response->body);
     }
-    print_buffer(*buffer);
+
     return size_buffer;
 }
 
@@ -901,7 +901,6 @@ HTTP_Response *receive_http_response(int sockfd)
     }
 
     response = deserialize_http_response_header(buffer);
-    print_buffer(buffer);
 
     // Get the Content-Length header value
     content_length_str = find_header_value(response->headers, response->header_count, "Content-Length");

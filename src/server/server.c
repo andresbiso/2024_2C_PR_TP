@@ -1151,7 +1151,7 @@ void *handle_client_http_read(void *arg)
 
 void *handle_client_http_write(void *arg)
 {
-    char *file_content, *full_path, *size_str;
+    char *file_content, *full_path, *last_occurrence, *size_str;
     const char *content_type;
     int body_size, file_fd, header_index, header_count;
     ssize_t bytes_read, total_bytes_read;
@@ -1186,12 +1186,11 @@ void *handle_client_http_write(void *arg)
     printf("Thread HTTP (%s:%d): escritura comienzo\n", client_data->client_ipstr, client_data->client_port);
     header_index = 0;
     header_count = INITIAL_HEADER_COUNT;
-
     if (client_data->request->request_line.uri[0] == '/' && strlen(client_data->request->request_line.uri) > 1)
     {
         // Generate response for a particular file
         // Allocate memory for the file content
-        full_path = (char *)malloc(sizeof(char) * (strlen(RESOURCES_FOLDER) + strlen(client_data->request->request_line.uri) + 1));
+        full_path = (char *)malloc(sizeof(char) * (strlen(RESOURCES_FOLDER) + strlen(client_data->request->request_line.uri)) + 1);
         if (full_path == NULL)
         {
             fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
@@ -1202,8 +1201,38 @@ void *handle_client_http_write(void *arg)
         snprintf(full_path, strlen(RESOURCES_FOLDER) + strlen(client_data->request->request_line.uri) + 1, "%s%s", RESOURCES_FOLDER, client_data->request->request_line.uri);
 
         // strrchr: searches for the last occurrence of a character in a string
-        content_type = get_content_type(strrchr(full_path, '.'));
+        if ((last_occurrence = strrchr(full_path, '.')) == NULL)
+        {
+            fprintf(stderr, "server: error al buscar extension de archivo %s\n", full_path);
+            free(full_path);
 
+            // Generate response for resource error
+            client_data->response = create_http_response(DEFAULT_HTTP_VERSION, 400, HTTP_400_PHRASE, NULL, 0, NULL);
+            if (send_http_response(client_data->client_sockfd, client_data->response) < 0)
+            {
+                fprintf(stderr, "server: error al enviar HTTP response\n");
+                free_http_request(&client_data->request);
+                free_http_response(&client_data->response);
+                thread_result->value = THREAD_RESULT_ERROR;
+                pthread_exit((void *)thread_result);
+            }
+            else
+            {
+                printf("Thread HTTP (%s:%d): response-line enviado: %s %d %s\n",
+                       client_data->client_ipstr,
+                       client_data->client_port,
+                       client_data->response->response_line.version,
+                       client_data->response->response_line.status_code,
+                       client_data->response->response_line.reason_phrase);
+            }
+            free_http_request(&client_data->request);
+            free_http_response(&client_data->response);
+            thread_result->value = THREAD_RESULT_SUCCESS;
+            pthread_exit((void *)thread_result);
+        }
+        content_type = get_content_type(last_occurrence);
+        puts("hola:)");
+        free(last_occurrence);
         pthread_mutex_lock(&lock_file);
         file_fd = open(full_path, O_RDONLY);
         free(full_path);

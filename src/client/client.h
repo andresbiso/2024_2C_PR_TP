@@ -15,7 +15,6 @@
 #define EXTERNAL_PORT_HTTP "3030"     // The port client will be connecting to
 #define PORTSTRLEN 6                  // Enough to hold "65535" + '\0'
 #define DEFAULT_MODE 0                // 0: test mode; 1: http mode
-#define DEFAULT_RESOURCE "server.png"
 #define DEFAULT_HOST "localhost"
 #define DEFAULT_HTTP_METHOD "GET"
 #define DEFAULT_HTTP_VERSION "HTTP/1.1"
