@@ -21,14 +21,17 @@
 #define LOCAL_PORT_TCP_HTTP "3030" // The port clients will be connecting for TCP HTTP
 #define PORTSTRLEN 6               // Enough to hold "65535" + '\0'
 #define VERSION "0.0.1"
-
+#define RESOURCES_FOLDER "assets"
 #define MAX_CLIENTS 1024
-
 #define THREAD_RESULT_EMPTY_REQUEST -3
 #define THREAD_RESULT_EMPTY_PACKET -2
 #define THREAD_RESULT_ERROR -1
 #define THREAD_RESULT_SUCCESS 0
 #define THREAD_RESULT_CLOSED 1
+#define DEFAULT_HTTP_VERSION "HTTP/1.1"
+#define HTTP_200_PHRASE "OK"
+#define HTTP_400_PHRASE "Bad Request"
+#define HTTP_404_PHRASE "Not Found"
 
 typedef struct
 {

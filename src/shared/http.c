@@ -260,7 +260,7 @@ HTTP_Request *create_http_request(const char *method, const char *uri, const cha
 {
     HTTP_Request *request;
 
-    if (method == NULL || uri == NULL || version == NULL || headers == NULL || header_count < 0)
+    if (method == NULL || uri == NULL || version == NULL)
     {
         fprintf(stderr, "Uno o más valores de creación de HTTP Request es inválido\n");
         return NULL;
@@ -304,8 +304,19 @@ HTTP_Request *create_http_request(const char *method, const char *uri, const cha
     }
     strcpy(request->request_line.version, version);
 
-    request->headers = headers;
-    request->header_count = header_count;
+    if (headers != NULL)
+    {
+        request->headers = headers;
+    }
+
+    if (header_count >= 0)
+    {
+        request->header_count = header_count;
+    }
+    else
+    {
+        request->header_count = 0;
+    }
 
     if (body != NULL)
     {
@@ -565,7 +576,7 @@ HTTP_Response *create_http_response(const char *version, const int status_code, 
 {
     HTTP_Response *response;
 
-    if (version == NULL || status_code <= 0 || reason_phrase == NULL || headers == NULL || header_count < 0)
+    if (version == NULL || status_code <= 0 || reason_phrase == NULL)
     {
         fprintf(stderr, "Uno o más valores de creación de HTTP Response es inválido\n");
         return NULL;
@@ -599,8 +610,19 @@ HTTP_Response *create_http_response(const char *version, const int status_code, 
     }
     strcpy(response->response_line.reason_phrase, reason_phrase);
 
-    response->headers = headers;
-    response->header_count = header_count;
+    if (headers != NULL)
+    {
+        response->headers = headers;
+    }
+
+    if (header_count >= 0)
+    {
+        response->header_count = header_count;
+    }
+    else
+    {
+        response->header_count = 0;
+    }
 
     if (body != NULL)
     {
