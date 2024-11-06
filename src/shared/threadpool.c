@@ -259,15 +259,17 @@ static void *threadpool_thread(void *threadpool)
 
         /* Unlock */
         pthread_mutex_unlock(&(pool->lock));
+        if (task.function != NULL)
+        {
+            /* Execute the task and store the result */
+            task.result = (*(task.function))(task.argument);
 
-        /* Execute the task and store the result */
-        task.result = (*(task.function))(task.argument);
-
-        /* Signal task completion */
-        pthread_mutex_lock(&(task.result_lock));
-        task.done = 1;
-        pthread_cond_signal(&(task.result_notify));
-        pthread_mutex_unlock(&(task.result_lock));
+            /* Signal task completion */
+            pthread_mutex_lock(&(task.result_lock));
+            task.done = 1;
+            pthread_cond_signal(&(task.result_notify));
+            pthread_mutex_unlock(&(task.result_lock));
+        }
     }
 
     pool->started--;
