@@ -55,6 +55,8 @@
     "initializer_list": "c",
     "queue": "c",
     "stack": "c",
-    "unordered_map": "c"
+    "unordered_map": "c",
+    "threadpool.h": "c",
+    "stdlib.h": "c"
   }
 }

@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
     }
 
     // threadpool destroy
-    if (threadpool_destroy(pool, 0) != 0)
+    if (threadpool_destroy(pool, threadpool_graceful) != 0)
     {
         perror("server: error al intentar destruir threadpool\n");
         return EXIT_FAILURE;

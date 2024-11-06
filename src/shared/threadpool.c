@@ -1,31 +1,6 @@
-/*https://github.com/mbrossard/threadpool*/
-
-/*
- * Copyright (c) 2016, Mathias Brossard <mathias@brossard.org>.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- *  1. Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *
- *  2. Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+/**
+ * Original Author: https://github.com/mbrossard/threadpool
+ * The file was updated and adapted to the requirements of this assignment
  */
 
 /**
@@ -33,70 +8,21 @@
  * @brief Threadpool implementation file
  */
 
-#include <stdlib.h>
+// Standard library headers
 #include <pthread.h>
+#include <stdlib.h>
 #include <unistd.h>
 
+// Project header
 #include "threadpool.h"
-
-typedef enum
-{
-    immediate_shutdown = 1,
-    graceful_shutdown = 2
-} threadpool_shutdown_t;
-
-/**
- *  @struct threadpool_task
- *  @brief the work struct
- *
- *  @var function Pointer to the function that will perform the task.
- *  @var argument Argument to be passed to the function.
- */
-
-typedef struct
-{
-    void (*function)(void *);
-    void *argument;
-} threadpool_task_t;
-
-/**
- *  @struct threadpool
- *  @brief The threadpool struct
- *
- *  @var notify       Condition variable to notify worker threads.
- *  @var threads      Array containing worker threads ID.
- *  @var thread_count Number of threads
- *  @var queue        Array containing the task queue.
- *  @var queue_size   Size of the task queue.
- *  @var head         Index of the first element.
- *  @var tail         Index of the next element.
- *  @var count        Number of pending tasks
- *  @var shutdown     Flag indicating if the pool is shutting down
- *  @var started      Number of started threads
- */
-struct threadpool_t
-{
-    pthread_mutex_t lock;
-    pthread_cond_t notify;
-    pthread_t *threads;
-    threadpool_task_t *queue;
-    int thread_count;
-    int queue_size;
-    int head;
-    int tail;
-    int count;
-    int shutdown;
-    int started;
-};
 
 /**
  * @function void *threadpool_thread(void *threadpool)
  * @brief the worker thread
  * @param threadpool the pool which own the thread
  */
+// static limits the function's scope to the file it is declared in.
 static void *threadpool_thread(void *threadpool);
-
-int threadpool_free(threadpool_t *pool);
 
 threadpool_t *threadpool_create(int thread_count, int queue_size, int flags)
 {
@@ -156,8 +82,7 @@ err:
     return NULL;
 }
 
-int threadpool_add(threadpool_t *pool, void (*function)(void *),
-                   void *argument, int flags)
+int threadpool_add(threadpool_t *pool, void *(*function)(void *), void *argument, threadpool_task_t **out_task, int flags)
 {
     int err = 0;
     int next;
@@ -194,6 +119,16 @@ int threadpool_add(threadpool_t *pool, void (*function)(void *),
         /* Add task to queue */
         pool->queue[pool->tail].function = function;
         pool->queue[pool->tail].argument = argument;
+        pool->queue[pool->tail].result = NULL;
+        pthread_mutex_init(&(pool->queue[pool->tail].result_lock), NULL);
+        pthread_cond_init(&(pool->queue[pool->tail].result_notify), NULL);
+        pool->queue[pool->tail].done = 0;
+
+        if (out_task != NULL)
+        {
+            *out_task = &(pool->queue[pool->tail]);
+        }
+
         pool->tail = next;
         pool->count += 1;
 
@@ -246,7 +181,7 @@ int threadpool_destroy(threadpool_t *pool, int flags)
             break;
         }
 
-        /* Join all worker thread */
+        /* Join all worker threads */
         for (i = 0; i < pool->thread_count; i++)
         {
             if (pthread_join(pool->threads[i], NULL) != 0)
@@ -271,7 +206,7 @@ int threadpool_free(threadpool_t *pool)
         return -1;
     }
 
-    /* Did we manage to allocate ? */
+    /* Did we manage to allocate? */
     if (pool->threads)
     {
         free(pool->threads);
@@ -315,19 +250,48 @@ static void *threadpool_thread(void *threadpool)
         /* Grab our task */
         task.function = pool->queue[pool->head].function;
         task.argument = pool->queue[pool->head].argument;
+        task.result = pool->queue[pool->head].result;
+        task.result_lock = pool->queue[pool->head].result_lock;
+        task.result_notify = pool->queue[pool->head].result_notify;
+        task.done = 0;
         pool->head = (pool->head + 1) % pool->queue_size;
         pool->count -= 1;
 
         /* Unlock */
         pthread_mutex_unlock(&(pool->lock));
 
-        /* Get to work */
-        (*(task.function))(task.argument);
+        /* Execute the task and store the result */
+        task.result = (*(task.function))(task.argument);
+
+        /* Signal task completion */
+        pthread_mutex_lock(&(task.result_lock));
+        task.done = 1;
+        pthread_cond_signal(&(task.result_notify));
+        pthread_mutex_unlock(&(task.result_lock));
     }
 
     pool->started--;
 
     pthread_mutex_unlock(&(pool->lock));
     pthread_exit(NULL);
-    return (NULL);
+    return NULL;
+}
+
+void *threadpool_wait_for_task(threadpool_task_t *task)
+{
+    void *result;
+
+    pthread_mutex_lock(&(task->result_lock));
+    while (!task->done)
+    {
+        pthread_cond_wait(&(task->result_notify), &(task->result_lock));
+    }
+    result = task->result;
+    pthread_mutex_unlock(&(task->result_lock));
+
+    /* Clean up */
+    pthread_mutex_destroy(&(task->result_lock));
+    pthread_cond_destroy(&(task->result_notify));
+
+    return result;
 }
