@@ -43,6 +43,10 @@ threadpool_t *threadpool_create(int thread_count, int queue_size, int flags)
         (pool->threads == NULL) ||
         (pool->task_queue == NULL))
     {
+        if (pool)
+        {
+            threadpool_free(pool);
+        }
         return NULL;
     }
 
@@ -53,6 +57,7 @@ threadpool_t *threadpool_create(int thread_count, int queue_size, int flags)
             threadpool_destroy(pool, 0);
             return NULL;
         }
+        pool->thread_count++;
         pool->started++;
     }
 
@@ -230,6 +235,7 @@ static void *threadpool_thread(void *threadpool)
         }
 
         task = &(pool->task_queue[pool->head]);
+        task->done = 0;
         pool->head = (pool->head + 1) % pool->queue_size;
         pool->count -= 1;
 
