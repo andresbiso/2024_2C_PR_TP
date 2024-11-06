@@ -10,7 +10,6 @@
 
 // Standard library headers
 #include <pthread.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -139,7 +138,6 @@ void *threadpool_wait(threadpool_task_t *task)
     }
     pthread_mutex_unlock(&task->task_mutex);
 
-    pthread_join(*task->thread, NULL);
     return task->result; // Return the stored result
 }
 
@@ -244,11 +242,6 @@ static void *threadpool_thread(void *threadpool)
         // Execute the function and store the result
         result = (*(task->function))(task->argument);
         task->result = result;
-
-        if (result != NULL)
-        {
-            puts("no es vacio");
-        }
 
         pthread_mutex_lock(&task->task_mutex);
         task->done = 1;
