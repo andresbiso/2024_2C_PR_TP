@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
     }
 
     // threadpool destroy
-    if (threadpool_destroy(pool, threadpool_graceful) != 0)
+    if (threadpool_destroy(pool, THREADPOOL_GRACEFUL) != 0)
     {
         fprintf(stderr, "server: error al intentar destruir threadpool\n");
         return EXIT_FAILURE;
@@ -540,7 +540,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                         }
 
                         // wait for the task to complete and get the result
-                        result = threadpool_wait_for_task(task);
+                        result = threadpool_wait(task);
 
                         thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
@@ -572,7 +572,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                         }
 
                         // wait for the task to complete and get the result
-                        result = threadpool_wait_for_task(task);
+                        result = threadpool_wait(task);
 
                         thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
@@ -613,7 +613,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                         }
 
                         // wait for the task to complete and get the result
-                        result = threadpool_wait_for_task(task);
+                        result = threadpool_wait(task);
 
                         thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
@@ -657,7 +657,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                         }
 
                         // wait for the task to complete and get the result
-                        result = threadpool_wait_for_task(task);
+                        result = threadpool_wait(task);
 
                         thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
@@ -689,7 +689,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                         }
 
                         // wait for the task to complete and get the result
-                        result = threadpool_wait_for_task(task);
+                        result = threadpool_wait(task);
 
                         thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
@@ -730,7 +730,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                         }
 
                         // wait for the task to complete and get the result
-                        result = threadpool_wait_for_task(task);
+                        result = threadpool_wait(task);
 
                         thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
@@ -844,7 +844,7 @@ void *handle_client_simple_read(void *arg)
         free_simple_packet(client_data->packet);
         client_data->packet = NULL;
         thread_result->value = THREAD_RESULT_CLOSED;
-        pthread_exit((void *)thread_result);
+        return (void *)thread_result;
     }
     else if (recv_val < 0)
     {
@@ -852,7 +852,7 @@ void *handle_client_simple_read(void *arg)
         free_simple_packet(client_data->packet);
         client_data->packet = NULL;
         thread_result->value = THREAD_RESULT_ERROR;
-        pthread_exit((void *)thread_result);
+        return (void *)thread_result;
     }
     printf("server: mensaje recibido: \"%s\"\n", client_data->packet->data);
 
@@ -860,7 +860,7 @@ void *handle_client_simple_read(void *arg)
     printf("Thread cliente (%s:%d): lectura fin\n", client_data->client_ipstr, client_data->client_port);
 
     thread_result->value = THREAD_RESULT_SUCCESS;
-    pthread_exit((void *)thread_result);
+    return (void *)thread_result;
 }
 
 void *handle_client_simple_write(void *arg)
@@ -897,7 +897,7 @@ void *handle_client_simple_write(void *arg)
         {
             fprintf(stderr, "server: error al crear packet\n");
             thread_result->value = THREAD_RESULT_ERROR;
-            pthread_exit((void *)thread_result);
+            return (void *)thread_result;
         }
         if (send_simple_packet(client_data->client_sockfd, client_data->packet) < 0)
         {
@@ -905,7 +905,7 @@ void *handle_client_simple_write(void *arg)
             free_simple_packet(client_data->packet);
             client_data->packet = NULL;
             thread_result->value = THREAD_RESULT_ERROR;
-            pthread_exit((void *)thread_result);
+            return (void *)thread_result;
         }
         printf("Thread cliente (%s:%d): mensaje enviado: \"%s\"\n", client_data->client_ipstr, client_data->client_port, client_data->packet->data);
     }
@@ -917,7 +917,7 @@ void *handle_client_simple_write(void *arg)
         {
             fprintf(stderr, "server: error al crear packet\n");
             thread_result->value = THREAD_RESULT_ERROR;
-            pthread_exit((void *)thread_result);
+            return (void *)thread_result;
         }
         if (send_simple_packet(client_data->client_sockfd, client_data->packet) < 0)
         {
@@ -925,7 +925,7 @@ void *handle_client_simple_write(void *arg)
             free_simple_packet(client_data->packet);
             client_data->packet = NULL;
             thread_result->value = THREAD_RESULT_ERROR;
-            pthread_exit((void *)thread_result);
+            return (void *)thread_result;
         }
         printf("Thread cliente (%s:%d): mensaje enviado: \"%s\"\n", client_data->client_ipstr, client_data->client_port, client_data->packet->data);
     }
@@ -934,7 +934,7 @@ void *handle_client_simple_write(void *arg)
     printf("Thread cliente (%s:%d): escritura fin\n", client_data->client_ipstr, client_data->client_port);
 
     thread_result->value = THREAD_RESULT_SUCCESS;
-    pthread_exit((void *)thread_result);
+    return (void *)thread_result;
 }
 
 void *handle_client_heartbeat_read(void *arg)
@@ -974,7 +974,7 @@ void *handle_client_heartbeat_read(void *arg)
     {
         fprintf(stderr, "server: error al crear packet\n");
         thread_result->value = THREAD_RESULT_ERROR;
-        pthread_exit((void *)thread_result);
+        return (void *)thread_result;
     }
     // receive HEARTBEAT message from client
     recv_val = recv_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, heartbeat_data->addr, &heartbeat_data->addrlen);
@@ -984,7 +984,7 @@ void *handle_client_heartbeat_read(void *arg)
         free_heartbeat_packet(heartbeat_data->packet);
         heartbeat_data->packet = NULL;
         thread_result->value = THREAD_RESULT_CLOSED;
-        pthread_exit((void *)thread_result);
+        return (void *)thread_result;
     }
     else if (recv_val < 0)
     {
@@ -992,7 +992,7 @@ void *handle_client_heartbeat_read(void *arg)
         free_heartbeat_packet(heartbeat_data->packet);
         heartbeat_data->packet = NULL;
         thread_result->value = THREAD_RESULT_ERROR;
-        pthread_exit((void *)thread_result);
+        return (void *)thread_result;
     }
 
     client_ipv4 = (struct sockaddr_in *)heartbeat_data->addr;
@@ -1006,7 +1006,7 @@ void *handle_client_heartbeat_read(void *arg)
     puts("Thread Heartbeat: lectura fin");
 
     thread_result->value = THREAD_RESULT_SUCCESS;
-    pthread_exit((void *)thread_result);
+    return (void *)thread_result;
 }
 
 void *handle_client_heartbeat_write(void *arg)
@@ -1037,14 +1037,13 @@ void *handle_client_heartbeat_write(void *arg)
     {
         // we can't send ACK if we haven't got a Heartbeat message first
         thread_result->value = THREAD_RESULT_EMPTY_PACKET;
-        pthread_exit((void *)thread_result);
+        return (void *)thread_result;
     }
-
     // If server already received a packet from the client and it wasn't a Heartbeat
     if (heartbeat_data->packet != NULL && strstr(heartbeat_data->packet->message, "HEARTBEAT") == NULL)
     {
         thread_result->value = THREAD_RESULT_SUCCESS;
-        pthread_exit((void *)thread_result);
+        return (void *)thread_result;
     }
 
     puts("Thread Heartbeat: escritura comienzo");
@@ -1058,7 +1057,7 @@ void *handle_client_heartbeat_write(void *arg)
     {
         fprintf(stderr, "server: error al crear packet\n");
         thread_result->value = THREAD_RESULT_ERROR;
-        pthread_exit((void *)thread_result);
+        return (void *)thread_result;
     }
     if (send_heartbeat_packet(heartbeat_data->sockfd, heartbeat_data->packet, heartbeat_data->addr, heartbeat_data->addrlen) < 0)
     {
@@ -1066,7 +1065,7 @@ void *handle_client_heartbeat_write(void *arg)
         free_heartbeat_packet(heartbeat_data->packet);
         heartbeat_data->packet = NULL;
         thread_result->value = THREAD_RESULT_ERROR;
-        pthread_exit((void *)thread_result);
+        return (void *)thread_result;
     }
     client_ipv4 = (struct sockaddr_in *)heartbeat_data->addr;
     client_addr = &(client_ipv4->sin_addr);
@@ -1082,7 +1081,7 @@ void *handle_client_heartbeat_write(void *arg)
     puts("Thread Heartbeat: escritura fin");
 
     thread_result->value = THREAD_RESULT_SUCCESS;
-    pthread_exit((void *)thread_result);
+    return (void *)thread_result;
 }
 
 void *handle_client_http_read(void *arg)
@@ -1113,7 +1112,7 @@ void *handle_client_http_read(void *arg)
     {
         fprintf(stderr, "server: error al recibir HTTP request\n");
         thread_result->value = THREAD_RESULT_ERROR;
-        pthread_exit((void *)thread_result);
+        return (void *)thread_result;
     }
 
     printf("Thread HTTP (%s:%d): HTTP request recibido: %s %s %s\n",
@@ -1142,7 +1141,7 @@ void *handle_client_http_read(void *arg)
     printf("Thread HTTP (%s:%d): lectura fin\n", client_data->client_ipstr, client_data->client_port);
 
     thread_result->value = THREAD_RESULT_SUCCESS;
-    pthread_exit((void *)thread_result);
+    return (void *)thread_result;
 }
 
 void *handle_client_http_write(void *arg)
@@ -1176,7 +1175,7 @@ void *handle_client_http_write(void *arg)
     if (client_data->request == NULL)
     {
         thread_result->value = THREAD_RESULT_EMPTY_REQUEST;
-        pthread_exit((void *)thread_result);
+        return (void *)thread_result;
     }
 
     printf("Thread HTTP (%s:%d): escritura comienzo\n", client_data->client_ipstr, client_data->client_port);
@@ -1192,7 +1191,7 @@ void *handle_client_http_write(void *arg)
             fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
             free_http_request(&client_data->request);
             thread_result->value = THREAD_RESULT_ERROR;
-            pthread_exit((void *)thread_result);
+            return (void *)thread_result;
         }
         snprintf(full_path, strlen(RESOURCES_FOLDER) + strlen(client_data->request->request_line.uri) + 1, "%s%s", RESOURCES_FOLDER, client_data->request->request_line.uri);
 
@@ -1212,7 +1211,7 @@ void *handle_client_http_write(void *arg)
                 free_http_request(&client_data->request);
                 free_http_response(&client_data->response);
                 thread_result->value = THREAD_RESULT_ERROR;
-                pthread_exit((void *)thread_result);
+                return (void *)thread_result;
             }
             else
             {
@@ -1226,7 +1225,7 @@ void *handle_client_http_write(void *arg)
             free_http_request(&client_data->request);
             free_http_response(&client_data->response);
             thread_result->value = THREAD_RESULT_SUCCESS;
-            pthread_exit((void *)thread_result);
+            return (void *)thread_result;
         }
 
         content_type = get_content_type(last_occurrence);
@@ -1244,7 +1243,7 @@ void *handle_client_http_write(void *arg)
                 fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
                 free_http_request(&client_data->request);
                 thread_result->value = THREAD_RESULT_ERROR;
-                pthread_exit((void *)thread_result);
+                return (void *)thread_result;
             }
             headers = create_headers(header_count);
             add_header(&headers, &header_index, &header_count, "Content-Type", content_type);
@@ -1267,7 +1266,7 @@ void *handle_client_http_write(void *arg)
                 free_http_request(&client_data->request);
                 free_http_response(&client_data->response);
                 thread_result->value = THREAD_RESULT_ERROR;
-                pthread_exit((void *)thread_result);
+                return (void *)thread_result;
             }
             // Read the file content into response->body
             total_bytes_read = 0;
@@ -1282,7 +1281,7 @@ void *handle_client_http_write(void *arg)
                     free_http_request(&client_data->request);
                     free_http_response(&client_data->response);
                     thread_result->value = THREAD_RESULT_ERROR;
-                    pthread_exit((void *)thread_result);
+                    return (void *)thread_result;
                 }
                 total_bytes_read += bytes_read;
             }
@@ -1299,7 +1298,7 @@ void *handle_client_http_write(void *arg)
                 free_http_request(&client_data->request);
                 free_http_response(&client_data->response);
                 thread_result->value = THREAD_RESULT_ERROR;
-                pthread_exit((void *)thread_result);
+                return (void *)thread_result;
             }
             printf("Thread HTTP (%s:%d): response-line enviado: %s %d %s\n",
                    client_data->client_ipstr,
@@ -1324,7 +1323,7 @@ void *handle_client_http_write(void *arg)
                 free_http_request(&client_data->request);
                 free_http_response(&client_data->response);
                 thread_result->value = THREAD_RESULT_ERROR;
-                pthread_exit((void *)thread_result);
+                return (void *)thread_result;
             }
             else
             {
@@ -1346,7 +1345,7 @@ void *handle_client_http_write(void *arg)
         {
             fprintf(stderr, "server: error al abrir carpeta de recursos: %s\n", strerror(errno));
             thread_result->value = THREAD_RESULT_ERROR;
-            pthread_exit((void *)thread_result);
+            return (void *)thread_result;
         }
 
         client_data->response = create_http_response(DEFAULT_HTTP_VERSION, 200, HTTP_200_PHRASE, NULL, 0, NULL);
@@ -1373,7 +1372,7 @@ void *handle_client_http_write(void *arg)
             free_http_request(&client_data->request);
             free_http_response(&client_data->response);
             thread_result->value = THREAD_RESULT_ERROR;
-            pthread_exit((void *)thread_result);
+            return (void *)thread_result;
         }
 
         // Initialize the body with an empty string
@@ -1401,7 +1400,7 @@ void *handle_client_http_write(void *arg)
             fprintf(stderr, "server: error al asignar memoria: %s\n", strerror(errno));
             free_http_request(&client_data->request);
             thread_result->value = THREAD_RESULT_ERROR;
-            pthread_exit((void *)thread_result);
+            return (void *)thread_result;
         }
 
         headers = create_headers(header_count);
@@ -1420,7 +1419,7 @@ void *handle_client_http_write(void *arg)
             free_http_request(&client_data->request);
             free_http_response(&client_data->response);
             thread_result->value = THREAD_RESULT_ERROR;
-            pthread_exit((void *)thread_result);
+            return (void *)thread_result;
         }
         printf("Thread HTTP (%s:%d): response-line enviado: %s %d %s\n",
                client_data->client_ipstr,
@@ -1444,7 +1443,7 @@ void *handle_client_http_write(void *arg)
             free_http_request(&client_data->request);
             free_http_response(&client_data->response);
             thread_result->value = THREAD_RESULT_ERROR;
-            pthread_exit((void *)thread_result);
+            return (void *)thread_result;
         }
         else
         {
@@ -1465,7 +1464,7 @@ void *handle_client_http_write(void *arg)
     printf("Thread HTTP (%s:%d): escritura fin\n", client_data->client_ipstr, client_data->client_port);
 
     thread_result->value = THREAD_RESULT_SUCCESS;
-    pthread_exit((void *)thread_result);
+    return (void *)thread_result;
 }
 
 Client_Tcp_Data *create_client_tcp_data(int sockfd, const char *ipstr, in_port_t port)
