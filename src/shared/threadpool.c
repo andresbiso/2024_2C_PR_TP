@@ -56,7 +56,6 @@ threadpool_t *threadpool_create(int thread_count, int queue_size, int flags)
             threadpool_destroy(pool, 0);
             return NULL;
         }
-        pool->thread_count++;
         pool->started++;
     }
 
@@ -177,6 +176,7 @@ int threadpool_destroy(threadpool_t *pool, int flags)
             if (pthread_join(pool->threads[i], NULL) != 0)
             {
                 err = THREADPOOL_THREAD_FAILURE;
+                break;
             }
         }
     } while (0);
@@ -199,12 +199,16 @@ int threadpool_free(threadpool_t *pool)
     if (pool->threads)
     {
         free(pool->threads);
-        free(pool->task_queue);
-
-        pthread_mutex_lock(&(pool->lock));
-        pthread_mutex_destroy(&(pool->lock));
-        pthread_cond_destroy(&(pool->notify));
     }
+
+    if (pool->task_queue)
+    {
+        free(pool->task_queue);
+    }
+
+    pthread_mutex_lock(&(pool->lock));
+    pthread_mutex_destroy(&(pool->lock));
+    pthread_cond_destroy(&(pool->notify));
 
     free(pool);
     return 0;
