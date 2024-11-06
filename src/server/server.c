@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "server: error al intentar crear threadpool\n");
         return EXIT_FAILURE;
     }
-    printf("server: threadPool comienzo. threads: %d queue size: %d\n", thread_count, queue_size);
+    printf("server: threadpool comienzo. threads: %d queue size: %d\n", thread_count, queue_size);
 
     ret_val = handle_connections(sockfd_tcp, sockfd_udp, sockfd_tcp_http);
     if (ret_val < 0)
@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "server: error al intentar destruir threadpool\n");
         return EXIT_FAILURE;
     }
-    printf("server: threadPool finalizado\n");
+    printf("server: threadpool finalizado\n");
 
     close(sockfd_tcp);
     close(sockfd_udp);

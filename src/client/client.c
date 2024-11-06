@@ -133,7 +133,6 @@ int parse_arguments(int argc, char *argv[], char *external_ip, char *external_po
                 if (strcmp(argv[i + 1], "0") == 0 || strcmp(argv[i + 1], "1") == 0)
                 {
                     *mode = atoi(argv[i + 1]);
-                    printf("mode %d", *mode);
                     i++; // Skip the next argument since it's the port number
                 }
                 else
