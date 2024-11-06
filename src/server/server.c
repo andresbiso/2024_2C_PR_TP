@@ -377,8 +377,7 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
     char their_ipstr[INET_ADDRSTRLEN];
     int i, max_fd, new_fd, ret_val, their_port, select_ret;
     fd_set master, read_fds, write_fds, except_fds;
-    pthread_t thread;
-    pthread_attr_t attr;
+    threadpool_task_t *task;
     socklen_t sin_size;
     struct sockaddr their_addr; // connector's address information
     struct timeval timeout;
@@ -427,12 +426,6 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
         clients = NULL;
         return -1;
     }
-
-    // Initialize thread attributes
-    pthread_attr_init(&attr);
-    // joinable: the system will not automatically clean up the resources of the thread when it terminates.
-    // We need to call pthread_join to clean up and retrieve the thread’s exit status.
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
     // Main accept() loop
     stop = 0;
@@ -537,19 +530,16 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                     else if (i == heartbeat_data->sockfd)
                     {
                         // handle read
-                        if (pthread_create(&thread, &attr, handle_client_heartbeat_read, (void *)heartbeat_data) != 0)
+                        // adding a task
+                        if (threadpool_add(pool, handle_client_heartbeat_read, (void *)heartbeat_data, &task, 0))
                         {
-                            perror("server: pthread_create");
+                            fprintf(stderr, "server: no se pudo agregar task al threadpool\n");
                             ret_val = -1;
                             break;
                         }
 
-                        if (pthread_join(thread, (void *)&result) != 0)
-                        {
-                            perror("server: pthread_join");
-                            ret_val = -1;
-                            break;
-                        }
+                        // wait for the task to complete and get the result
+                        result = threadpool_wait_for_task(task);
 
                         thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
@@ -570,23 +560,18 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                     else if (index_in_client_http_data_array(http_clients, MAX_CLIENTS, i))
                     {
                         // handle HTTP read
-                        if (pthread_create(&thread, &attr, handle_client_http_read, (void *)http_clients[i]) != 0)
+                        // adding a task
+                        if (threadpool_add(pool, handle_client_http_read, (void *)http_clients[i], &task, 0))
                         {
-                            perror("server: pthread_create");
+                            fprintf(stderr, "server: no se pudo agregar task al threadpool\n");
                             ret_val = -1;
                             free_client_http_data(&http_clients[i]);
                             FD_CLR(i, &master);
                             break;
                         }
 
-                        if (pthread_join(thread, (void *)&result) != 0)
-                        {
-                            perror("server: pthread_join");
-                            ret_val = -1;
-                            free_client_http_data(&http_clients[i]);
-                            FD_CLR(i, &master);
-                            break;
-                        }
+                        // wait for the task to complete and get the result
+                        result = threadpool_wait_for_task(task);
 
                         thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
@@ -616,23 +601,18 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                     else
                     {
                         // handle read
-                        if (pthread_create(&thread, &attr, handle_client_simple_read, (void *)clients[i]) != 0)
+                        // adding a task
+                        if (threadpool_add(pool, handle_client_simple_read, (void *)clients[i], &task, 0))
                         {
-                            perror("server: pthread_create");
+                            fprintf(stderr, "server: no se pudo agregar task al threadpool\n");
                             ret_val = -1;
                             free_client_tcp_data(&clients[i]);
                             FD_CLR(i, &master);
                             break;
                         }
 
-                        if (pthread_join(thread, (void *)&result) != 0)
-                        {
-                            perror("server: pthread_join");
-                            ret_val = -1;
-                            free_client_tcp_data(&clients[i]);
-                            FD_CLR(i, &master);
-                            break;
-                        }
+                        // wait for the task to complete and get the result
+                        result = threadpool_wait_for_task(task);
 
                         thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
@@ -667,19 +647,16 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                     if (i == heartbeat_data->sockfd)
                     {
                         // handle write
-                        if (pthread_create(&thread, &attr, handle_client_heartbeat_write, (void *)heartbeat_data) != 0)
+                        // adding a task
+                        if (threadpool_add(pool, handle_client_heartbeat_write, (void *)heartbeat_data, &task, 0))
                         {
-                            perror("server: pthread_create");
+                            fprintf(stderr, "server: no se pudo agregar task al threadpool\n");
                             ret_val = -1;
                             break;
                         }
 
-                        if (pthread_join(thread, (void *)&result) != 0)
-                        {
-                            perror("server: pthread_join");
-                            ret_val = -1;
-                            break;
-                        }
+                        // wait for the task to complete and get the result
+                        result = threadpool_wait_for_task(task);
 
                         thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
@@ -700,23 +677,18 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                     else if (index_in_client_http_data_array(http_clients, MAX_CLIENTS, i))
                     {
                         // handle HTTP write
-                        if (pthread_create(&thread, &attr, handle_client_http_write, (void *)http_clients[i]) != 0)
+                        // adding a task
+                        if (threadpool_add(pool, handle_client_http_write, (void *)http_clients[i], &task, 0))
                         {
-                            perror("server: pthread_create");
+                            fprintf(stderr, "server: no se pudo agregar task al threadpool\n");
                             ret_val = -1;
                             free_client_http_data(&http_clients[i]);
                             FD_CLR(i, &master);
                             break;
                         }
 
-                        if (pthread_join(thread, (void *)&result) != 0)
-                        {
-                            perror("server: pthread_join");
-                            ret_val = -1;
-                            free_client_http_data(&http_clients[i]);
-                            FD_CLR(i, &master);
-                            break;
-                        }
+                        // wait for the task to complete and get the result
+                        result = threadpool_wait_for_task(task);
 
                         thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
@@ -746,23 +718,18 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
                     else
                     {
                         // handle write
-                        if (pthread_create(&thread, &attr, handle_client_simple_write, (void *)clients[i]) != 0)
+                        // adding a task
+                        if (threadpool_add(pool, handle_client_simple_write, (void *)clients[i], &task, 0))
                         {
-                            perror("server: pthread_create");
+                            fprintf(stderr, "server: no se pudo agregar task al threadpool\n");
                             ret_val = -1;
                             free_client_tcp_data(&clients[i]);
                             FD_CLR(i, &master);
                             break;
                         }
 
-                        if (pthread_join(thread, (void *)&result) != 0)
-                        {
-                            perror("server: pthread_join");
-                            ret_val = -1;
-                            free_client_tcp_data(&clients[i]);
-                            FD_CLR(i, &master);
-                            break;
-                        }
+                        // wait for the task to complete and get the result
+                        result = threadpool_wait_for_task(task);
 
                         thread_result = (Thread_Result *)result;
                         if (thread_result != NULL)
@@ -842,7 +809,6 @@ int handle_connections(int sockfd_tcp, int sockfd_udp, int sockfd_tcp_http)
     free_heartbeat_data(heartbeat_data);
     free_clients_tcp_data(clients, MAX_CLIENTS);
     free_clients_http_data(http_clients, MAX_CLIENTS);
-    pthread_attr_destroy(&attr);
     return ret_val;
 }
 
@@ -868,8 +834,6 @@ void *handle_client_simple_read(void *arg)
     }
 
     printf("Thread cliente (%s:%d): lectura comienzo\n", client_data->client_ipstr, client_data->client_port);
-
-    simulate_work();
 
     // receive initial message from client
     recv_val = recv_simple_packet(client_data->client_sockfd, &client_data->packet);
@@ -921,7 +885,6 @@ void *handle_client_simple_write(void *arg)
 
     printf("Thread cliente (%s:%d): escritura comienzo\n", client_data->client_ipstr, client_data->client_port);
 
-    simulate_work();
     // send PONG message
     if (client_data->packet != NULL && strstr(client_data->packet->data, "PING") != NULL)
     {
@@ -999,8 +962,6 @@ void *handle_client_heartbeat_read(void *arg)
     }
 
     puts("Thread Heartbeat: lectura comienzo");
-
-    simulate_work();
 
     if (heartbeat_data->packet != NULL)
     {
@@ -1086,8 +1047,6 @@ void *handle_client_heartbeat_write(void *arg)
     }
 
     puts("Thread Heartbeat: escritura comienzo");
-
-    simulate_work();
 
     // send ACK message
     puts("server: el mensaje contiene \"HEARTBEAT\"");
