@@ -1064,6 +1064,10 @@ const char *get_content_type(const char *extension)
     {
         return "application/pdf";
     }
+    else if (strcmp(extension, ".html") == 0)
+    {
+        return "text/html";
+    }
     else
     {
         return "application/octet-stream"; // Default for unknown types
