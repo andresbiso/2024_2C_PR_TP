@@ -1040,6 +1040,10 @@ const char *get_content_type(const char *extension)
     {
         return "image/jpeg";
     }
+    else if (strcmp(extension, ".jpeg") == 0)
+    {
+        return "image/jpeg";
+    }
     else if (strcmp(extension, ".png") == 0)
     {
         return "image/png";
